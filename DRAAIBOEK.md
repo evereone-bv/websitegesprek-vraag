@@ -11,12 +11,18 @@
 4. Na ca. 5 minuten: `https://vraag.websitegesprek.nl/healthz` geeft `{"ok":true,...,"sleutel_gezet":false}`.
    Installatielog op de server: `/var/log/vraag-install.log`.
 
+## Stand 13 nov 2026
+
+Server `vraag-websitegesprek` (CPX02, Ubuntu 24.04, Nuremberg) draait; firewall `fw-vraag` met ICMP, TCP 80, TCP 443
+(TCP 22 weer dicht). SSH-sleutel `vraag-websitegesprek` staat alleen op de Mac van Raymond (`~/.ssh/websitegesprek_vraag`).
+API-sleutel `vraag-websitegesprek-server` (werkruimte vraagbaak) gezet; verloopt 13 feb 2027 (herinnering 1 feb 2027).
+
 ## B. API-sleutel zetten of vervangen (Raymond)
 
 1. Claude Console › werkruimte `vraagbaak` › API keys › Create key, naam `vraag-websitegesprek-server`.
    Van dit scherm geen schermafbeelding; de sleutel nergens anders bewaren.
 2. Hetzner-firewall: tijdelijk TCP 22 open.
-3. Op de Mac in Terminal: `ssh -t root@vraag.websitegesprek.nl vraag-sleutel-zetten` en de sleutel plakken
+3. Op de Mac in Terminal: `ssh -t -i ~/.ssh/websitegesprek_vraag root@vraag.websitegesprek.nl vraag-sleutel-zetten` en de sleutel plakken
    (onzichtbaar). Het script controleert de sleutel bij Anthropic en slaat hem pas dan op.
 4. Hetzner-firewall: TCP 22 weer dicht.
 5. Controle: `/healthz` geeft `"sleutel_gezet":true`.
