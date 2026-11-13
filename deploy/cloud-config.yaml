@@ -1,0 +1,9 @@
+#cloud-config
+# Plak dit bij het aanmaken van de server (Hetzner: "Cloud config"; elders: "user data").
+# Er staan geen geheimen in. De server haalt de code uit GitHub en zet alles zelf neer (deploy/install.sh).
+# De API-sleutel zet Raymond daarna zelf met deploy/sleutel-zetten.sh (zie DRAAIBOEK.md).
+package_update: true
+packages:
+  - git
+runcmd:
+  - [bash, -c, "git clone https://github.com/evereone-bv/websitegesprek-vraag.git /opt/vraag && bash /opt/vraag/deploy/install.sh > /var/log/vraag-install.log 2>&1"]

@@ -1,0 +1,20 @@
+# Caddy zet https (Let's Encrypt, automatisch vernieuwd) voor de vraagbaak op 127.0.0.1:8090.
+# Geen toegangslog: zo worden geen IP-adressen van bezoekers bewaard (V4).
+{
+	email info@websitegesprek.nl
+}
+
+vraag.websitegesprek.nl {
+	encode gzip
+	request_body {
+		max_size 16KB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		-Server
+	}
+	reverse_proxy 127.0.0.1:8090
+}

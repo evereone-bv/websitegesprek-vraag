@@ -1,0 +1,12 @@
+{
+  "name": "websitegesprek-vraag",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Vraagbaak (chat) op websitegesprek.nl - server",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}
