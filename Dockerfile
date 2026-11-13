@@ -9,9 +9,12 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY package.json ./
 COPY src ./src
+COPY venster ./venster
+COPY testset ./testset
+COPY kennisbank ./kennisbank
 
 RUN mkdir -p /data && chown node:node /data
 USER node
 VOLUME ["/data"]
 EXPOSE 8090
-CMD ["node", "src/server.mjs"]
+CMD ["node", "--disable-warning=ExperimentalWarning", "src/server.mjs"]

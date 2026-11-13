@@ -28,6 +28,15 @@ API-sleutel `vraag-websitegesprek-server` (werkruimte vraagbaak) gezet; verloopt
 5. Controle: `/healthz` geeft `"sleutel_gezet":true`.
 6. Elk kwartaal vervangen (herinnering), oude sleutel daarna intrekken in de Console.
 
+## B2. Vraagbaak aanzetten voor bezoekers (pas na de testset, privacyverklaring 1.8 en eindtoets Juridisch)
+
+1. Controleer https://vraag.websitegesprek.nl/proef: `geslaagd: true`.
+2. Hetzner-firewall: tijdelijk TCP 22 open. Op de Mac:
+   `ssh -t -i ~/.ssh/websitegesprek_vraag root@vraag.websitegesprek.nl "echo VRAAG_ACTIEF=1 >> /etc/vraag/vraag.env && systemctl restart vraag"`
+   TCP 22 weer dicht. Controle: `/healthz` geeft `"aan":true`.
+3. Op websitegesprek.nl in het blok `data-aan="1"` zetten (Claude, werkbon, na 'publiceren').
+4. Uitzetten kan altijd met `data-aan="0"` op de site (zonder SSH); de server zet zichzelf ook uit bij problemen.
+
 ## C. Bijwerken
 
 - Automatisch elke zondag 04:37: code uit GitHub (main), nieuwste basis-image, herstart (`vraag-update.timer`).

@@ -1,12 +1,16 @@
 {
   "name": "websitegesprek-vraag",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "description": "Vraagbaak (chat) op websitegesprek.nl - server",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "start": "node src/server.mjs",
-    "test": "node --test test/*.test.mjs"
+    "start": "node --disable-warning=ExperimentalWarning src/server.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.mjs",
+    "kennisbank:snapshot": "node --disable-warning=ExperimentalWarning src/snapshot.mjs",
+    "proef": "node --disable-warning=ExperimentalWarning src/proef.mjs"
   }
 }
