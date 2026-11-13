@@ -4,7 +4,7 @@
 
 1. Primary IP `vraag-websitegesprek-ipv4` = 2.31.189.129 (Nuremberg). DNS bij Hostnet: A-record `vraag` → dat
    adres, TTL 600 (staat sinds 13 nov 2026).
-2. Server aanmaken: locatie Nuremberg, Ubuntu 24.04, type CX23 (of CAX11 op ARM), naam `vraag-websitegesprek`,
+2. Server aanmaken: locatie Nuremberg, Ubuntu 24.04, type CPX02 (1 vCPU, 1 GB; CX23 was 13 nov niet leverbaar in Nuremberg), naam `vraag-websitegesprek`,
    Networking: het Primary IP hierboven (IPv4), SSH-sleutel van Raymond, Cloud config: inhoud van
    `deploy/cloud-config.yaml`.
 3. Firewall `fw-vraag`: inkomend TCP 80, TCP 443, ICMP. TCP 22 alleen tijdelijk, zolang de sleutel wordt gezet.

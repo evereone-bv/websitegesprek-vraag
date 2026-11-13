@@ -68,7 +68,7 @@ Restart=always
 RestartSec=5
 ExecStartPre=-/usr/bin/docker rm -f vraag
 ExecStart=/usr/bin/docker run --rm --name vraag --network vraagnet -p 127.0.0.1:8090:8090 \\
-  --memory=512m --pids-limit=256 --cap-drop=ALL --security-opt no-new-privileges \\
+  --memory=384m --memory-swap=384m --pids-limit=256 --cap-drop=ALL --security-opt no-new-privileges \\
   --read-only --tmpfs /tmp:size=16m \\
   -v vraagdata:/data --env-file /etc/vraag/vraag.env $IMAGE
 ExecStop=/usr/bin/docker stop -t 10 vraag
