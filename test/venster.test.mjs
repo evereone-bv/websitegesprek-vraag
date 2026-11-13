@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import vm from 'node:vm';
 
-test('blok voor de site: script zonder && en zonder <', () => {
-  const html = readFileSync(new URL('../venster/blok-websitegesprek.html', import.meta.url), 'utf8');
+test('zweef-kaart voor de site: script zonder && en zonder <', () => {
+  const html = readFileSync(new URL('../venster/zweef-kaart.html', import.meta.url), 'utf8');
   const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
   assert.ok(!script.includes('&&'));
   assert.ok(!script.includes('<'));
@@ -17,7 +17,7 @@ function laadVenster() {
   const el = () => ({ style: {}, setAttribute() {}, getAttribute() { return null; }, appendChild() {}, querySelectorAll: () => [], focus() {}, set textContent(v) {}, get textContent() { return ''; } });
   const ctx = {
     window: {}, navigator: { language: 'nl-NL' }, location: { href: 'https://websitegesprek.nl/', search: '' },
-    document: { createElement: el, createTextNode: () => ({}), head: el(), body: el() },
+    document: { createElement: el, createTextNode: () => ({}), querySelector: () => null, head: el(), body: el() },
     sessionStorage: { getItem: () => null, setItem() {} },
     fetch: () => Promise.reject(new Error('geen netwerk in de test')), AbortController, setTimeout, clearTimeout,
     encodeURIComponent, unescape, Math, JSON, URL, String, Array, Promise,
@@ -39,7 +39,12 @@ test('venster: sha256 van de puzzel klopt met node:crypto', () => {
 
 test('venster: geen innerHTML en links alleen naar websitegesprek.nl', () => {
   const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
-  assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|eval\(/.test(js));
+  assert.ok(!/outerHTML|insertAdjacentHTML|eval\(/.test(js));
+  // innerHTML alleen voor vaste iconen uit het bestand zelf, nooit voor tekst van de server of de bezoeker.
+  const toewijzingen = [...js.matchAll(/innerHTML\s*=\s*([A-Za-z_]+)/g)].map((m) => m[1]);
+  assert.ok(toewijzingen.length > 0);
+  for (const t of toewijzingen) assert.ok(['svg', 'WA_ICOON'].includes(t), t);
+  assert.match(js, /icoonKnop\(DUIM_OP/);
   assert.match(js, /hostname === 'websitegesprek\.nl'/);
   assert.match(js, /credentials: 'omit'/);
 });

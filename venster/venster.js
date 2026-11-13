@@ -13,14 +13,14 @@
   var MAIL = 'mailto:info@websitegesprek.nl';
   var NL = /^nl\b/i.test(navigator.language || 'nl'); // VB7: Engelse melding als de browsertaal geen Nederlands is
   var T = NL ? {
-    titel: 'Vraag het de vraagbaak', plaats: 'Typ je vraag…', stuur: 'Stuur', sluit: 'Sluiten', bezig: 'Even denken…', nogEven: 'Nog even…',
+    titel: 'Stel je vraag', plaats: 'Typ je vraag…', stuur: 'Stuur', sluit: 'Sluiten', bezig: 'Even denken…', nogEven: 'Nog even…',
     mislukt: 'Dat lukt nu even niet. Vraag het via WhatsApp of mail, dan krijg je persoonlijk antwoord.',
     uit: 'De vraagbaak is even niet beschikbaar. Je vraag is welkom via WhatsApp of mail; je krijgt dan persoonlijk antwoord.',
     wa: 'Vraag het via WhatsApp', mail: 'Mail ons', bron: 'Lees meer', nuttig: 'Was dit nuttig?', ja: 'Ja, nuttig', nee: 'Nee, niet nuttig',
     v1: 'Je praat met een AI-assistent (Claude). Antwoorden kunnen fouten bevatten; wat telt, staat op onze website en in onze voorwaarden. Deel geen persoonsgegevens; liever een mens? Vraag het via WhatsApp of mail.',
     vol: 'Dit gesprek is vol. Begin een nieuw gesprek of vraag het via WhatsApp.', tegrootte: 'Je vraag is te lang (max. 500 tekens).', start: 'Verbinden…'
   } : {
-    titel: 'Ask our assistant', plaats: 'Type your question…', stuur: 'Send', sluit: 'Close', bezig: 'Thinking…', nogEven: 'Almost there…',
+    titel: 'Ask your question', plaats: 'Type your question…', stuur: 'Send', sluit: 'Close', bezig: 'Thinking…', nogEven: 'Almost there…',
     mislukt: "That isn't working right now. Ask us via WhatsApp or email for a personal answer.",
     uit: 'The assistant is not available right now. Ask us via WhatsApp or email for a personal answer.',
     wa: 'Ask via WhatsApp', mail: 'Email us', bron: 'Read more', nuttig: 'Was this helpful?', ja: 'Yes, helpful', nee: 'No, not helpful',
@@ -86,32 +86,47 @@
   }
 
   /* ---------- opmaak ---------- */
+  // Huisstijl websitegesprek.nl (design-profile 10 nov 2026, skill websitegesprek-design):
+  // navy #0E1B2C, amber #F2B33D (één hoofdknop: Stuur), tekst #1B2633, lijnen #E3DED2, crème #F6F4EE,
+  // Inter 16-17px, Bricolage Grotesque voor de kop, knoppen 48px radius 12px, kaart radius 16px, iconen getekend.
   var css = '' +
-    '#wgv{position:fixed;right:16px;bottom:16px;z-index:2147483000;width:min(380px,calc(100vw - 32px));max-height:min(620px,calc(100vh - 32px));display:flex;flex-direction:column;background:#fff;color:#1b1f2a;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.25);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}' +
+    '#wgv{position:fixed;right:16px;bottom:max(16px,env(safe-area-inset-bottom));z-index:1000;width:min(400px,calc(100vw - 32px));height:min(640px,calc(100dvh - 32px));display:flex;flex-direction:column;background:#fff;color:#1B2633;border:1px solid #E3DED2;border-radius:16px;box-shadow:0 8px 28px rgba(14,27,44,.18);font:16px/1.5 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden}' +
     '#wgv *{box-sizing:border-box}' +
-    '#wgv .k{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;background:#1b1f2a;color:#fff}' +
-    '#wgv .k strong{font-size:16px}' +
-    '#wgv button{font:inherit;cursor:pointer;min-height:44px;min-width:44px;border-radius:10px;border:0}' +
-    '#wgv .x{background:transparent;color:#fff;font-size:24px;line-height:1}' +
-    '#wgv .m{padding:10px 14px;font-size:13px;color:#4a5160;background:#f4f2ec;border-bottom:1px solid #e6e2d8}' +
-    '#wgv .l{flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}' +
-    '#wgv .b{max-width:88%;padding:10px 12px;border-radius:12px;white-space:pre-wrap;word-wrap:break-word}' +
-    '#wgv .b.u{align-self:flex-end;background:#1b1f2a;color:#fff}' +
-    '#wgv .b.a{align-self:flex-start;background:#f4f2ec}' +
-    '#wgv .b a{color:#1b1f2a;font-weight:600}' +
-    '#wgv .id{display:block;margin-top:6px;font-size:11px;color:#6b7280}' +
-    '#wgv .d{display:flex;gap:6px;margin-top:6px}' +
-    '#wgv .d button{background:#fff;border:1px solid #d9d4c7;min-height:36px;min-width:44px;font-size:16px}' +
-    '#wgv .d button[aria-pressed=true]{background:#f5c400;border-color:#f5c400}' +
-    '#wgv form{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #e6e2d8}' +
-    '#wgv textarea{flex:1;resize:none;min-height:44px;max-height:120px;padding:10px;border:1px solid #cfc9bb;border-radius:10px;font:inherit}' +
-    '#wgv textarea:focus,#wgv button:focus-visible,#wgv a:focus-visible{outline:3px solid #f5c400;outline-offset:2px}' +
-    '#wgv .s{background:#f5c400;color:#1b1f2a;font-weight:700;padding:0 14px}' +
-    '#wgv .s[disabled]{opacity:.5;cursor:default}' +
-    '#wgv .t{display:flex;gap:8px;padding:0 14px 12px}' +
-    '#wgv .t a{flex:1;display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px}' +
-    '#wgv .t .w{background:#25D366;color:#073b1b}' +
-    '#wgv .t .e{background:#eceae4;color:#1b1f2a}';
+    '#wgv .k{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 8px 8px 24px;background:#0E1B2C;color:#F6F4EE;min-height:64px}' +
+    '#wgv .k h2{margin:0;font:700 19px/1.3 "Bricolage Grotesque",Inter,sans-serif;color:#F6F4EE}' +
+    '#wgv button{font:inherit;cursor:pointer;border:0;-webkit-tap-highlight-color:transparent}' +
+    '#wgv .x{position:relative;width:48px;height:48px;border-radius:12px;background:transparent}' +
+    '#wgv .x::before,#wgv .x::after{content:"";position:absolute;left:14px;top:23px;width:20px;height:2px;border-radius:1px;background:#F6F4EE}' +
+    '#wgv .x::before{transform:rotate(45deg)}#wgv .x::after{transform:rotate(-45deg)}' +
+    '#wgv .m{margin:0;padding:16px 24px;font-size:14px;line-height:1.5;color:#5B6775;background:#F6F4EE;border-bottom:1px solid #E3DED2}' +
+    '#wgv .l{flex:1;overflow:auto;padding:16px 24px;display:flex;flex-direction:column;gap:16px;overscroll-behavior:contain}' +
+    '#wgv .b{max-width:88%;padding:12px 16px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}' +
+    '#wgv .b.u{align-self:flex-end;background:#0E1B2C;color:#F6F4EE;border-bottom-right-radius:4px}' +
+    '#wgv .b.a{align-self:flex-start;background:#F6F4EE;color:#1B2633;border-bottom-left-radius:4px}' +
+    '#wgv .b a{color:#0E1B2C;font-weight:600;text-decoration:underline;text-underline-offset:2px}' +
+    '#wgv .id{display:block;margin-top:8px;font-size:12px;line-height:1.4;color:#5B6775}' +
+    '#wgv .d{display:flex;gap:8px;margin-top:8px}' +
+    '#wgv .d button{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:#fff;border:1px solid #E3DED2;color:#0E1B2C}' +
+    '#wgv .d button svg{width:20px;height:20px;display:block}' +
+    '#wgv .d button[aria-pressed=true]{background:#0E1B2C;border-color:#0E1B2C;color:#F6F4EE}' +
+    '#wgv form{display:flex;gap:8px;align-items:flex-end;padding:16px 24px;border-top:1px solid #E3DED2;margin:0}' +
+    '#wgv textarea{flex:1;resize:none;min-height:48px;max-height:120px;padding:12px 16px;border:1px solid #5B6775;border-radius:12px;font:inherit;color:#1B2633;background:#fff}' +
+    '#wgv textarea::placeholder{color:#5B6775}' +
+    '#wgv textarea:focus-visible,#wgv button:focus-visible,#wgv a:focus-visible{outline:3px solid #0E1B2C;outline-offset:2px}' +
+    '#wgv .k button:focus-visible{outline-color:#F2B33D}' +
+    '#wgv .s{min-height:48px;padding:0 24px;border-radius:12px;background:#F2B33D;color:#0E1B2C;font-weight:700}' +
+    '#wgv .s[disabled],#wgv textarea[disabled]{opacity:.55;cursor:default}' +
+    '#wgv .t{display:flex;gap:8px;padding:0 24px 16px}' +
+    '#wgv .t a{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 16px;border-radius:12px;border:2px solid #0E1B2C;color:#0E1B2C;background:#fff;font-weight:600;font-size:15px;text-decoration:none}' +
+    '#wgv .t .w i{display:inline-flex;width:24px;height:24px;border-radius:50%;background:#25D366;align-items:center;justify-content:center}' +
+    '#wgv .t .w svg{width:14px;height:14px}' +
+    '@media (max-width:480px){#wgv{left:0;right:0;bottom:0;width:100%;height:min(88dvh,640px);border-radius:16px 16px 0 0;border-bottom:0}#wgv .k{padding-left:16px}#wgv .m,#wgv .l,#wgv form{padding-left:16px;padding-right:16px}#wgv .t{padding:0 16px max(16px,env(safe-area-inset-bottom))}}' +
+    '@media (prefers-reduced-motion:no-preference){#wgv{animation:wgvIn .2s ease-out}@keyframes wgvIn{from{opacity:0}to{opacity:1}}}' +
+    '@media print{#wgv{display:none}}';
+
+  var DUIM_OP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11v9H4v-9h3zM7 11l4-8c1.7 0 3 1.3 3 3v3h5.2c1.3 0 2.2 1.2 1.9 2.4l-1.6 7c-.2.9-1 1.6-1.9 1.6H7"/></svg>';
+  var DUIM_NEER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 13V4h3v9h-3zM17 13l-4 8c-1.7 0-3-1.3-3-3v-3H4.8c-1.3 0-2.2-1.2-1.9-2.4l1.6-7C4.7 4.7 5.5 4 6.4 4H17"/></svg>';
+  var WA_ICOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>'; // officieel WhatsApp-icoon, ongewijzigd
 
   var el, lijst, invoer, knop, token = null, bezig = false, opnieuw = 0;
 
@@ -120,6 +135,14 @@
     if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
     if (tekst != null) e.textContent = tekst;
     return e;
+  }
+  // Knop met een vast, eigen SVG-icoon (nooit tekst van buiten).
+  function icoonKnop(svg, label) {
+    var b = maak('button', { type: 'button', 'aria-label': label, 'aria-pressed': 'false' });
+    var tpl = document.createElement('template');
+    tpl.innerHTML = svg; // alleen vaste iconen uit dit bestand
+    if (tpl.content) b.appendChild(tpl.content.cloneNode(true));
+    return b;
   }
   function veiligeLink(url) {
     try { var u = new URL(url); return u.protocol === 'https:' && u.hostname === 'websitegesprek.nl' ? u.href : null; } catch (e) { return null; }
@@ -145,8 +168,8 @@
       b.setAttribute('data-id', id);
       b.appendChild(maak('span', { class: 'id' }, id));
       var d = maak('div', { class: 'd', role: 'group', 'aria-label': T.nuttig });
-      var ja = maak('button', { type: 'button', 'aria-label': T.ja, 'aria-pressed': 'false' }, '👍');
-      var nee = maak('button', { type: 'button', 'aria-label': T.nee, 'aria-pressed': 'false' }, '👎');
+      var ja = icoonKnop(DUIM_OP, T.ja);
+      var nee = icoonKnop(DUIM_NEER, T.nee);
       ja.onclick = function () { duim(id, 1, ja, nee); };
       nee.onclick = function () { duim(id, -1, nee, ja); };
       d.appendChild(ja); d.appendChild(nee); b.appendChild(d);
@@ -210,8 +233,8 @@
     var st = maak('style'); st.textContent = css; document.head.appendChild(st);
     el = maak('div', { id: 'wgv', role: 'dialog', 'aria-label': T.titel, 'aria-modal': 'false' });
     var k = maak('div', { class: 'k' });
-    k.appendChild(maak('strong', null, T.titel));
-    var x = maak('button', { type: 'button', class: 'x', 'aria-label': T.sluit }, '×');
+    k.appendChild(maak('h2', null, T.titel));
+    var x = maak('button', { type: 'button', class: 'x', 'aria-label': T.sluit });
     x.onclick = function () { el.style.display = 'none'; };
     k.appendChild(x); el.appendChild(k);
     var melding = maak('div', { class: 'm' }, T.v1); // V1: altijd zichtbaar vóór de eerste vraag
@@ -224,8 +247,15 @@
     invoer.disabled = true; knop.disabled = true;
     f.appendChild(invoer); f.appendChild(knop); el.appendChild(f);
     var t = maak('div', { class: 't' });
-    t.appendChild(maak('a', { class: 'w', href: WA, target: '_blank', rel: 'noopener' }, T.wa));
+    var waLink = maak('a', { class: 'w', href: WA, target: '_blank', rel: 'noopener' });
+    var waI = maak('i', { 'aria-hidden': 'true' });
+    var tplWa = document.createElement('template'); tplWa.innerHTML = WA_ICOON;
+    if (tplWa.content) waI.appendChild(tplWa.content.cloneNode(true));
+    waLink.appendChild(waI); waLink.appendChild(document.createTextNode('WhatsApp'));
+    t.appendChild(waLink);
     t.appendChild(maak('a', { class: 'e', href: MAIL }, T.mail));
+    // Open zwevende WhatsApp-kaart sluiten zodra het venster opent (één ding tegelijk in beeld).
+    var zw = document.querySelector('details.wg-zweef'); if (zw) zw.open = false;
     el.appendChild(t);
     f.onsubmit = function (ev) { ev.preventDefault(); var v = invoer.value; invoer.value = ''; stuur(v); };
     invoer.onkeydown = function (ev) { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); f.onsubmit(ev); } };
