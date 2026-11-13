@@ -61,7 +61,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const config = laadConfig();
   const i = args.indexOf('--model');
   if (i >= 0) config.model = args[i + 1];
-  config.actief = true; // alleen voor de proef; wijzigt niets aan de live stand
+  config.modus = 'aan'; // alleen voor de proef; wijzigt niets aan de live stand
   config.perIpUur = 10_000; config.perIpDag = 10_000; config.perTokenVragen = 100; config.tokensPerIpUur = 10_000; config.puzzelBits = 4;
   const opslag = openOpslag(config.dataMap);
   const vb = maakVraagbaak({ config, opslag });

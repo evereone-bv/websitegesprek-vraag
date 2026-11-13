@@ -11,7 +11,11 @@ export const DOLLAR_NAAR_EURO = 0.95; // ruwe omrekening voor de plafonds in eur
 export function laadConfig(env = process.env) {
   const getal = (n, d) => (env[n] !== undefined && env[n] !== '' && Number.isFinite(Number(env[n])) ? Number(env[n]) : d);
   return {
-    actief: env.VRAAG_ACTIEF === '1', // standaard UIT: pas aan na de testset en 'publiceren' (besluit 400)
+    // Aan/uit (besluit 400): 'auto' (standaard) = aan zodra het blok op websitegesprek.nl data-aan="1" heeft
+    // én de volledige testset voor dit model en deze instructie is geslaagd. '0' = altijd uit, '1' = handmatig aan.
+    modus: env.VRAAG_ACTIEF === '1' ? 'aan' : env.VRAAG_ACTIEF === '0' ? 'uit' : 'auto',
+    get actief() { return this.modus !== 'uit'; },
+    siteUrl: env.VRAAG_SITE_URL || 'https://websitegesprek.nl/',
     apiSleutel: env.ANTHROPIC_API_KEY || '',
     apiBasis: env.VRAAG_API_BASIS || 'https://api.anthropic.com',
     model: env.VRAAG_MODEL || 'claude-haiku-5-5', // testset beslist (399); vaste versie, geen alias

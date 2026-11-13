@@ -47,7 +47,7 @@ export function maakServer({ env = process.env, config = laadConfig(env), opslag
     const stuur = (status, data, extra = {}) => { res.writeHead(status, { ...kop, ...extra }); res.end(JSON.stringify(data)); };
 
     if (req.method === 'GET' && url.pathname === '/healthz') {
-      return stuur(200, { ok: true, versie: VERSIE, sinds: START, sleutel_gezet: sleutelGezet(env), vraagbaak_actief: config.actief, ...vb.gezondheid() });
+      return stuur(200, { ok: true, versie: VERSIE, sinds: START, sleutel_gezet: sleutelGezet(env), ...vb.gezondheid() });
     }
     if (req.method === 'GET' && url.pathname === '/proef') {
       return stuur(200, opslag.staat('proef:volledig', { nog_niet_gedraaid: true }));
@@ -91,7 +91,7 @@ export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = t
   return async (kandidaat) => {
     const { draaiTestset, laadTestset } = await import('./proef.mjs');
     const { losPuzzelOp } = await import('./beveiliging.mjs');
-    const cfg = { ...config, actief: true, perIpUur: 1e6, perIpDag: 1e6, perTokenVragen: 1e6, tokensPerIpUur: 1e6, puzzelBits: 2 };
+    const cfg = { ...config, modus: 'aan', perIpUur: 1e6, perIpDag: 1e6, perTokenVragen: 1e6, tokensPerIpUur: 1e6, puzzelBits: 2 };
     const tijdelijk = openOpslag(':memory:');
     const vb = maakVraagbaak({ config: cfg, opslag: tijdelijk, fetchFn });
     vb.zetKennisbank(kandidaat, true);
@@ -134,7 +134,7 @@ export function startTaken({ vraagbaak, opslag, config }) {
     if (oud && Date.now() - Date.parse(oud.tijd) < 6 * 3_600_000 && oud.sleutel.split('|')[0] === VERSIE) return;
     const u = await maakProef({ config, volledig: true, herhaal: 3 })(vraagbaak.kb).catch((e) => ({ ok: false, fout: e.message, uitslag: [] }));
     opslag.zetStaat('proef:volledig', {
-      sleutel, tijd: new Date().toISOString(), model: config.model, geslaagd: !!u.ok, fout: u.fout || '', goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout,
+      sleutel, tijd: new Date().toISOString(), model: config.model, instructie: INSTRUCTIE_VERSIE, geslaagd: !!u.ok, fout: u.fout || '', goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout,
       fouten: (u.uitslag || []).filter((x) => !x.goed).map((x) => ({ id: x.id, soort: x.soort, fouten: x.details.map((d) => d.fouten.join('; ')), antwoord: x.details[0]?.antwoord })),
     });
     opslag.log('proef', `volledige testset ${config.model}: ${u.goed}/${u.totaal}, valkuilen fout ${u.valkuilFout}`);
@@ -143,6 +143,9 @@ export function startTaken({ vraagbaak, opslag, config }) {
   setInterval(() => volledig().catch(() => {}), 3_600_000).unref();
   setInterval(ververs, 6 * 3_600_000).unref();
   setInterval(() => opslag.opruimen(config.registerDagen), 3_600_000).unref();
+  // Schakelaar op websitegesprek.nl elke 15 minuten lezen (besluit 400).
+  setTimeout(() => vraagbaak.leesSchakelaar(), 2_000).unref();
+  setInterval(() => vraagbaak.leesSchakelaar(), 15 * 60_000).unref();
   // Dagelijkse proef rond 03:17 (Nederlandse tijd ongeveer; server staat op UTC): 5 feitvragen, rood → uit (besluit 400).
   setInterval(async () => {
     const nu = new Date();
@@ -160,7 +163,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const host = process.env.HOST || '127.0.0.1';
   const app = maakServer();
   app.server.listen(port, host, () => {
-    console.log(`vraagbaak ${VERSIE} luistert op ${host}:${port}; sleutel gezet: ${sleutelGezet()}; actief: ${app.config.actief}`);
+    console.log(`vraagbaak ${VERSIE} luistert op ${host}:${port}; sleutel gezet: ${sleutelGezet()}; modus: ${app.config.modus}`);
   });
   startTaken(app);
 }

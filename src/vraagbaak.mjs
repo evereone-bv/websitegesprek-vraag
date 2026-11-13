@@ -4,6 +4,7 @@ import { controleer, parseModelUitvoer, DOORVERWIJZING } from './controle.mjs';
 import { vraagClaude, ApiFout } from './claude.mjs';
 import { kostenDollar, DOLLAR_NAAR_EURO } from './config.mjs';
 import { kennisbankAlsTekst, bouwKennisbank } from './kennisbank.mjs';
+import { INSTRUCTIE_VERSIE } from './instructie.mjs';
 import { geheim as haalGeheim, ipHash, maakPuzzel, controleerPuzzel, nieuwToken, antwoordId } from './beveiliging.mjs';
 
 const UUR = 3_600_000;
@@ -40,7 +41,13 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
   // ---- aan/uit (besluit 400) ----
   function status() {
     const uit = opslag.staat('uit', null); // { reden, sinds } of null
-    if (!config.actief) return { aan: false, reden: 'niet_geactiveerd' };
+    if (config.modus === 'uit') return { aan: false, reden: 'handmatig_uit' };
+    if (config.modus === 'auto') {
+      const site = opslag.staat('site:aan', null);
+      if (!site || !site.aan || klok() - site.tijd > 2 * UUR) return { aan: false, reden: 'schakelaar_site_uit' };
+      const p = opslag.staat('proef:volledig', null);
+      if (!p || !p.geslaagd || p.model !== config.model || p.instructie !== INSTRUCTIE_VERSIE) return { aan: false, reden: 'testset_niet_geslaagd' };
+    }
     if (!config.apiSleutel) return { aan: false, reden: 'geen_sleutel' };
     if (!kb) return { aan: false, reden: 'geen_kennisbank' };
     if (uit) return { aan: false, reden: uit.reden };
@@ -198,11 +205,31 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     return { ok: true, versie: nieuw.versie };
   }
 
+  // Schakelaar op websitegesprek.nl lezen: het blok id="wg-vraag-blok" met data-aan="1" (besluit 400).
+  // Lukt lezen niet, dan blijft de vorige stand staan; na 2 uur zonder bevestiging telt hij als uit (veilige kant).
+  async function leesSchakelaar() {
+    try {
+      const res = await fetchFn(config.siteUrl, { redirect: 'manual', headers: { 'User-Agent': 'websitegesprek-vraagbaak/schakelaar' } });
+      const html = await res.text();
+      if (res.status !== 200 || /sgcaptcha/.test(html.slice(0, 600))) throw new Error('site gaf ' + res.status);
+      const tag = html.match(/<[^>]*id=["']wg-vraag-blok["'][^>]*>/i)?.[0] || '';
+      const aan = /data-aan=["']1["']/i.test(tag);
+      const oud = opslag.staat('site:aan', null);
+      if (!oud || oud.aan !== aan) opslag.log('schakelaar', `site zegt ${aan ? 'aan' : 'uit'}`);
+      opslag.zetStaat('site:aan', { aan, tijd: klok() });
+      return { ok: true, aan };
+    } catch (e) {
+      opslag.log('schakelaar', `lezen mislukt: ${e.message}`);
+      return { ok: false };
+    }
+  }
+
   function gezondheid() {
     const s = status();
     const t = klok();
     return {
-      aan: s.aan, reden: s.reden || '',
+      aan: s.aan, reden: s.reden || '', modus: config.modus,
+      schakelaar_site: opslag.staat('site:aan', null)?.aan ?? null,
       kennisbank: kb ? kb.versie : null,
       kosten_vandaag_euro: Math.round(euro(opslag.stand(`kosten:dag:${dagVak(t)}`)) * 100) / 100,
       vragen_dit_uur: opslag.stand(`server:uur:${uurVak(t)}`),
@@ -210,5 +237,5 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     };
   }
 
-  return { status, zetUit, zetAan, puzzel, token, vraag, duim, ververs, gezondheid, zetKennisbank, laadActieveKennisbank, get kb() { return kb; } };
+  return { status, zetUit, zetAan, leesSchakelaar, puzzel, token, vraag, duim, ververs, gezondheid, zetKennisbank, laadActieveKennisbank, get kb() { return kb; } };
 }

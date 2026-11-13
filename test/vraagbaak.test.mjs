@@ -37,8 +37,33 @@ function gesprek(vb, ip = '10.0.0.1') {
   return t;
 }
 
-test('standaard staat de vraagbaak uit (VRAAG_ACTIEF niet gezet)', async () => {
-  const { vb } = opzet({ VRAAG_ACTIEF: '' });
+test('standaard (auto): uit tot de schakelaar op de site aan staat én de testset geslaagd is', async () => {
+  let siteHtml = '<html><div id="wg-vraag-blok" data-aan="0" hidden></div></html>';
+  const api = nepApi();
+  const fetchFn = async (url, opts) => (String(url).startsWith('https://websitegesprek.nl') ? new Response(siteHtml, { status: 200 }) : api(url, opts));
+  const { vb, opslag } = opzet({ VRAAG_ACTIEF: '' }, fetchFn);
+  assert.equal(vb.status().reden, 'schakelaar_site_uit');
+  await vb.leesSchakelaar();
+  assert.equal(vb.status().reden, 'schakelaar_site_uit');
+  siteHtml = '<html><div id="wg-vraag-blok" data-aan="1"></div></html>';
+  await vb.leesSchakelaar();
+  assert.equal(vb.status().reden, 'testset_niet_geslaagd');
+  const { INSTRUCTIE_VERSIE } = await import('../src/instructie.mjs');
+  opslag.zetStaat('proef:volledig', { geslaagd: true, model: 'claude-haiku-5-5', instructie: INSTRUCTIE_VERSIE });
+  assert.equal(vb.status().aan, true);
+  opslag.zetStaat('proef:volledig', { geslaagd: true, model: 'claude-sonnet-5-5', instructie: INSTRUCTIE_VERSIE });
+  assert.equal(vb.status().reden, 'testset_niet_geslaagd', 'testset voor een ander model telt niet');
+  opslag.zetStaat('proef:volledig', { geslaagd: true, model: 'claude-haiku-5-5', instructie: INSTRUCTIE_VERSIE });
+  // Site onbereikbaar of botcontrole: vorige stand blijft; na 2 uur zonder bevestiging uit.
+  siteHtml = '<html><meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/"></html>';
+  assert.equal((await vb.leesSchakelaar()).ok, false);
+  assert.equal(vb.status().aan, true);
+  opslag.zetStaat('site:aan', { aan: true, tijd: Date.now() - 3 * 3_600_000 });
+  assert.equal(vb.status().reden, 'schakelaar_site_uit');
+});
+
+test('VRAAG_ACTIEF=0 is altijd uit', async () => {
+  const { vb } = opzet({ VRAAG_ACTIEF: '0' });
   const t = gesprek(vb);
   assert.equal(t.aan, false);
   const r = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoi' });

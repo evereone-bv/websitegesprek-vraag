@@ -28,14 +28,17 @@ API-sleutel `vraag-websitegesprek-server` (werkruimte vraagbaak) gezet; verloopt
 5. Controle: `/healthz` geeft `"sleutel_gezet":true`.
 6. Elk kwartaal vervangen (herinnering), oude sleutel daarna intrekken in de Console.
 
-## B2. Vraagbaak aanzetten voor bezoekers (pas na de testset, privacyverklaring 1.8 en eindtoets Juridisch)
+## B2. Vraagbaak aan- en uitzetten voor bezoekers (zonder SSH, besluit 400)
 
-1. Controleer https://vraag.websitegesprek.nl/proef: `geslaagd: true`.
-2. Hetzner-firewall: tijdelijk TCP 22 open. Op de Mac:
-   `ssh -t -i ~/.ssh/websitegesprek_vraag root@vraag.websitegesprek.nl "echo VRAAG_ACTIEF=1 >> /etc/vraag/vraag.env && systemctl restart vraag"`
-   TCP 22 weer dicht. Controle: `/healthz` geeft `"aan":true`.
-3. Op websitegesprek.nl in het blok `data-aan="1"` zetten (Claude, werkbon, na 'publiceren').
-4. Uitzetten kan altijd met `data-aan="0"` op de site (zonder SSH); de server zet zichzelf ook uit bij problemen.
+De server is aan als alle drie kloppen (modus "auto", standaard):
+1. de volledige testset voor het huidige model en de huidige instructie is geslaagd (https://vraag.websitegesprek.nl/proef);
+2. het blok op websitegesprek.nl heeft `data-aan="1"` (de server leest dat elke 15 minuten; Claude zet het met een
+   werkbon na 'publiceren' van Raymond);
+3. er is geen storing (sleutel, tegoed, foutpercentage, kostenpiek, rode dagproef) en geen plafond bereikt.
+
+Uitzetten: `data-aan="0"` op de site (binnen 15 minuten uit op de server; de knop verdwijnt meteen).
+Noodgeval: `VRAAG_ACTIEF=0` in `/etc/vraag/vraag.env` zet hem altijd uit (vraagt SSH).
+Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
 
 ## C. Bijwerken
 

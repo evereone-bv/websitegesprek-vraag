@@ -1,5 +1,6 @@
 <!-- Vraagbaak Websitegesprek: vast blok voor websitegesprek.nl (ontwerp 0.2 §3).
-     Laadt niets tot de bezoeker op de knop tikt. Aan/uit staat hier: data-aan="1" is aan (besluit 400).
+     Laadt niets tot de bezoeker op de knop tikt. Aan/uit staat hier: data-aan="1" is aan (besluit 400);
+     de vraagserver leest dit blok elke 15 minuten en antwoordt alleen als het aan staat én de testset geslaagd is.
      Zolang data-aan="0" verschijnt de knop alleen met ?vraagbaak=test in het adres (proef op de telefoon).
      Script zonder dubbele ampersand en zonder kleiner-dan-teken (WordPress beschadigt die, les 12 nov). -->
 <div id="wg-vraag-blok" data-aan="0" hidden>

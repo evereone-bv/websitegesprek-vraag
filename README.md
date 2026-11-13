@@ -6,7 +6,7 @@ van websitegesprek.nl, via de Claude-API (werkruimte "vraagbaak" van EVEReONE B.
 Ontwerp en besluiten: `docs/voorstellen/websitegesprek-ontwerp-vraagbaak.md` in `evereone-bv/websitegesprek`
 (ontwerp 0.2, besluiten 398–402, voorwaarden Juridisch V1–V7 en VB1–VB10).
 
-## Hoe het werkt (versie 0.1)
+## Hoe het werkt (versie 0.1.1)
 
 ```
 websitegesprek.nl  vast blok (venster/blok-websitegesprek.html), laadt niets tot de tik
@@ -32,6 +32,7 @@ websitegesprek.nl  vast blok (venster/blok-websitegesprek.html), laadt niets tot
 4. **Grenzen en uitzetten** (`src/vraagbaak.mjs`): per gesprek, per IP-hash (dagelijks wisselend zout), per server;
    €2/uur en €8/dag (tijdelijk, vanzelf weer aan); blijvend uit bij sleutel-/tegoedfout, >20% API-fouten in 15 min,
    kostenpiek of rode dagelijkse proef; weer aan alleen na akkoord (`node src/beheer.mjs aan`).
+   Aan/uit voor bezoekers: blok op websitegesprek.nl met `data-aan="1"` + geslaagde testset (DRAAIBOEK B2).
 5. **Register** (`register` in SQLite): opgeschoonde vraag, antwoord, bron, onderwerp, doorverwezen, duim, kosten;
    geen IP of token; 30 dagen.
 

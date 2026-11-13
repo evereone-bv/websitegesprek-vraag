@@ -8,6 +8,6 @@
    samenvoegen in `main` alleen na `npm test` groen en akkoord van Raymond.
 4. Instructie (`src/instructie.mjs`), model of controle wijzigen = testset opnieuw (draait vanzelf op de server; uitslag
    op https://vraag.websitegesprek.nl/proef). Live alleen bij geslaagd (≥90% en 0 fouten op valkuilen, 3x gedraaid).
-5. De vraagbaak staat voor bezoekers uit tot `VRAAG_ACTIEF=1` in `/etc/vraag/vraag.env` staat (besluit 400) én het blok op
-   websitegesprek.nl `data-aan="1"` heeft. Live alleen met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
+5. De vraagbaak is voor bezoekers alleen aan als de testset geslaagd is én het blok op websitegesprek.nl `data-aan="1"` heeft
+   (besluit 400, DRAAIBOEK B2). Live alleen met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
 6. Testen: `npm test` (nagebootste API, geen sleutel nodig, geen kosten).
