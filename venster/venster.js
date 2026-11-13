@@ -16,14 +16,14 @@
     titel: 'Stel je vraag', plaats: 'Typ je vraag…', stuur: 'Stuur', sluit: 'Sluiten', bezig: 'Even denken…', nogEven: 'Nog even…',
     mislukt: 'Dat lukt nu even niet. Vraag het via WhatsApp of mail, dan krijg je persoonlijk antwoord.',
     uit: 'De vraagbaak is even niet beschikbaar. Je vraag is welkom via WhatsApp of mail; je krijgt dan persoonlijk antwoord.',
-    wa: 'Vraag het via WhatsApp', mail: 'Mail ons', bron: 'Lees meer', nuttig: 'Was dit nuttig?', ja: 'Ja, nuttig', nee: 'Nee, niet nuttig',
+    naam: 'Websitegesprek', mens: 'Liever een mens?', wa: 'WhatsApp', of: 'of', mail: 'mail ons', bron: 'Lees meer', nuttig: 'Was dit nuttig?', ja: 'Ja, nuttig', nee: 'Nee, niet nuttig',
     v1: 'Je praat met een AI-assistent (Claude). Antwoorden kunnen fouten bevatten; wat telt, staat op onze website en in onze voorwaarden. Deel geen persoonsgegevens; liever een mens? Vraag het via WhatsApp of mail.',
     vol: 'Dit gesprek is vol. Begin een nieuw gesprek of vraag het via WhatsApp.', tegrootte: 'Je vraag is te lang (max. 500 tekens).', start: 'Verbinden…'
   } : {
     titel: 'Ask your question', plaats: 'Type your question…', stuur: 'Send', sluit: 'Close', bezig: 'Thinking…', nogEven: 'Almost there…',
     mislukt: "That isn't working right now. Ask us via WhatsApp or email for a personal answer.",
     uit: 'The assistant is not available right now. Ask us via WhatsApp or email for a personal answer.',
-    wa: 'Ask via WhatsApp', mail: 'Email us', bron: 'Read more', nuttig: 'Was this helpful?', ja: 'Yes, helpful', nee: 'No, not helpful',
+    naam: 'Websitegesprek', mens: 'Prefer a human?', wa: 'WhatsApp', of: 'or', mail: 'email us', bron: 'Read more', nuttig: 'Was this helpful?', ja: 'Yes, helpful', nee: 'No, not helpful',
     v1: "You're chatting with an AI assistant (Claude). Answers may contain mistakes; what counts is on our website and in our terms. Don't share personal data; prefer a human? Ask us via WhatsApp or email.",
     vol: 'This conversation is full. Start a new one or ask via WhatsApp.', tegrootte: 'Your question is too long (max. 500 characters).', start: 'Connecting…'
   };
@@ -93,7 +93,11 @@
     '#wgv{position:fixed;right:16px;bottom:max(16px,env(safe-area-inset-bottom));z-index:1000;width:min(400px,calc(100vw - 32px));height:min(640px,calc(100dvh - 32px));display:flex;flex-direction:column;background:#fff;color:#1B2633;border:1px solid #E3DED2;border-radius:16px;box-shadow:0 8px 28px rgba(14,27,44,.18);font:16px/1.5 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden}' +
     '#wgv *{box-sizing:border-box}' +
     '#wgv .k{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 8px 8px 24px;background:#0E1B2C;color:#F6F4EE;min-height:64px}' +
-    '#wgv .k h2{margin:0;font:700 19px/1.3 "Bricolage Grotesque",Inter,sans-serif;color:#F6F4EE}' +
+    '#wgv .mk{display:flex;align-items:center;gap:12px;min-width:0}' +
+    '#wgv .lg{flex:0 0 36px;width:36px;height:36px;display:block}#wgv .lg svg{width:36px;height:36px;display:block}' +
+    '#wgv .nm{display:flex;flex-direction:column;min-width:0}' +
+    '#wgv .k h2{margin:0;font:700 19px/1.25 "Bricolage Grotesque",Inter,sans-serif;color:#F6F4EE}' +
+    '#wgv .sub{font-size:14px;line-height:1.4;color:#8E9BAA}' +
     '#wgv button{font:inherit;cursor:pointer;border:0;-webkit-tap-highlight-color:transparent}' +
     '#wgv .x{position:relative;width:48px;height:48px;border-radius:12px;background:transparent}' +
     '#wgv .x::before,#wgv .x::after{content:"";position:absolute;left:14px;top:23px;width:20px;height:2px;border-radius:1px;background:#F6F4EE}' +
@@ -116,17 +120,16 @@
     '#wgv .k button:focus-visible{outline-color:#F2B33D}' +
     '#wgv .s{min-height:48px;padding:0 24px;border-radius:12px;background:#F2B33D;color:#0E1B2C;font-weight:700}' +
     '#wgv .s[disabled],#wgv textarea[disabled]{opacity:.55;cursor:default}' +
-    '#wgv .t{display:flex;gap:8px;padding:0 24px 16px}' +
-    '#wgv .t a{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 16px;border-radius:12px;border:2px solid #0E1B2C;color:#0E1B2C;background:#fff;font-weight:600;font-size:15px;text-decoration:none}' +
-    '#wgv .t .w i{display:inline-flex;width:24px;height:24px;border-radius:50%;background:#25D366;align-items:center;justify-content:center}' +
-    '#wgv .t .w svg{width:14px;height:14px}' +
+    '#wgv .t{margin:0;padding:0 24px 16px;font-size:14px;line-height:1.5;color:#5B6775}' +
+    '#wgv .t a{display:inline-block;padding:4px 0;color:#0E1B2C;font-weight:600;text-decoration:underline;text-underline-offset:2px}' +
     '@media (max-width:480px){#wgv{left:0;right:0;bottom:0;width:100%;height:min(88dvh,640px);border-radius:16px 16px 0 0;border-bottom:0}#wgv .k{padding-left:16px}#wgv .m,#wgv .l,#wgv form{padding-left:16px;padding-right:16px}#wgv .t{padding:0 16px max(16px,env(safe-area-inset-bottom))}}' +
     '@media (prefers-reduced-motion:no-preference){#wgv{animation:wgvIn .2s ease-out}@keyframes wgvIn{from{opacity:0}to{opacity:1}}}' +
     '@media print{#wgv{display:none}}';
 
+  // Logo Websitegesprek, gelijk aan de kop van websitegesprek.nl (zodat een schermafbeelding herkenbaar van ons is).
+  var LOGO = '<svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#F2B33D"/><g transform="translate(0,16)"><path d="M118 150a46 46 0 0 1 46-46h184a46 46 0 0 1 46 46v136a46 46 0 0 1-46 46H236l-82 70v-70a46 46 0 0 1-36-45z" fill="#0E1B2C"/><g stroke="#F2B33D" stroke-width="26" stroke-linecap="round"><line x1="196" y1="196" x2="196" y2="240"/><line x1="256" y1="168" x2="256" y2="268"/><line x1="316" y1="196" x2="316" y2="240"/></g></g></svg>';
   var DUIM_OP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11v9H4v-9h3zM7 11l4-8c1.7 0 3 1.3 3 3v3h5.2c1.3 0 2.2 1.2 1.9 2.4l-1.6 7c-.2.9-1 1.6-1.9 1.6H7"/></svg>';
   var DUIM_NEER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 13V4h3v9h-3zM17 13l-4 8c-1.7 0-3-1.3-3-3v-3H4.8c-1.3 0-2.2-1.2-1.9-2.4l1.6-7C4.7 4.7 5.5 4 6.4 4H17"/></svg>';
-  var WA_ICOON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>'; // officieel WhatsApp-icoon, ongewijzigd
 
   var el, lijst, invoer, knop, token = null, bezig = false, opnieuw = 0;
 
@@ -233,7 +236,14 @@
     var st = maak('style'); st.textContent = css; document.head.appendChild(st);
     el = maak('div', { id: 'wgv', role: 'dialog', 'aria-label': T.titel, 'aria-modal': 'false' });
     var k = maak('div', { class: 'k' });
-    k.appendChild(maak('h2', null, T.titel));
+    var merk = maak('div', { class: 'mk' });
+    var logo = maak('span', { class: 'lg' });
+    var tplLogo = document.createElement('template'); tplLogo.innerHTML = LOGO;
+    if (tplLogo.content) logo.appendChild(tplLogo.content.cloneNode(true));
+    var namen = maak('span', { class: 'nm' });
+    namen.appendChild(maak('h2', null, T.naam));
+    namen.appendChild(maak('span', { class: 'sub' }, T.titel));
+    merk.appendChild(logo); merk.appendChild(namen); k.appendChild(merk);
     var x = maak('button', { type: 'button', class: 'x', 'aria-label': T.sluit });
     x.onclick = function () { el.style.display = 'none'; };
     k.appendChild(x); el.appendChild(k);
@@ -246,14 +256,12 @@
     knop = maak('button', { type: 'submit', class: 's' }, T.stuur);
     invoer.disabled = true; knop.disabled = true;
     f.appendChild(invoer); f.appendChild(knop); el.appendChild(f);
-    var t = maak('div', { class: 't' });
-    var waLink = maak('a', { class: 'w', href: WA, target: '_blank', rel: 'noopener' });
-    var waI = maak('i', { 'aria-hidden': 'true' });
-    var tplWa = document.createElement('template'); tplWa.innerHTML = WA_ICOON;
-    if (tplWa.content) waI.appendChild(tplWa.content.cloneNode(true));
-    waLink.appendChild(waI); waLink.appendChild(document.createTextNode('WhatsApp'));
-    t.appendChild(waLink);
-    t.appendChild(maak('a', { class: 'e', href: MAIL }, T.mail));
+    // Onderregel (wens Raymond 13 nov): geen knoppenrij meer, wel altijd de weg naar een mens.
+    var t = maak('p', { class: 't' });
+    t.appendChild(document.createTextNode(T.mens + ' '));
+    t.appendChild(maak('a', { href: WA, target: '_blank', rel: 'noopener' }, T.wa));
+    t.appendChild(document.createTextNode(' ' + T.of + ' '));
+    t.appendChild(maak('a', { href: MAIL }, T.mail));
     // Open zwevende WhatsApp-kaart sluiten zodra het venster opent (één ding tegelijk in beeld).
     var zw = document.querySelector('details.wg-zweef'); if (zw) zw.open = false;
     el.appendChild(t);

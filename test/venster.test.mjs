@@ -43,7 +43,7 @@ test('venster: geen innerHTML en links alleen naar websitegesprek.nl', () => {
   // innerHTML alleen voor vaste iconen uit het bestand zelf, nooit voor tekst van de server of de bezoeker.
   const toewijzingen = [...js.matchAll(/innerHTML\s*=\s*([A-Za-z_]+)/g)].map((m) => m[1]);
   assert.ok(toewijzingen.length > 0);
-  for (const t of toewijzingen) assert.ok(['svg', 'WA_ICOON'].includes(t), t);
+  for (const t of toewijzingen) assert.ok(['svg', 'LOGO'].includes(t), t);
   assert.match(js, /icoonKnop\(DUIM_OP/);
   assert.match(js, /hostname === 'websitegesprek\.nl'/);
   assert.match(js, /credentials: 'omit'/);
