@@ -142,7 +142,8 @@ export function startTaken({ vraagbaak, opslag, config }) {
   setTimeout(() => ververs().then(volledig), 5_000).unref();
   setInterval(() => volledig().catch(() => {}), 3_600_000).unref();
   setInterval(ververs, 6 * 3_600_000).unref();
-  setInterval(() => opslag.opruimen(config.registerDagen), 3_600_000).unref();
+  // Elke 5 minuten: zo staat een IP-code nooit langer dan 24 uur in de opslag (VA3).
+  setInterval(() => opslag.opruimen(config.registerDagen), 5 * 60_000).unref();
   // Schakelaar op websitegesprek.nl elke 15 minuten lezen (besluit 400).
   setTimeout(() => vraagbaak.leesSchakelaar(), 2_000).unref();
   setInterval(() => vraagbaak.leesSchakelaar(), 15 * 60_000).unref();

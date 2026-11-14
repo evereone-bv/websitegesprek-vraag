@@ -209,3 +209,19 @@ test('besluit 409: microfoon voor bezoekers standaard uit, aan met VRAAG_SPRAAK=
   assert.equal(gesprek(opzet().vb).spraak, false);
   assert.equal(gesprek(opzet({ VRAAG_SPRAAK: '1' }).vb).spraak, true);
 });
+
+test('VA3: tellers met een IP-code verlopen binnen 24 uur en de opslag wist ze echt', async () => {
+  const { IP_DAG } = await import('../src/vraagbaak.mjs');
+  assert.ok(IP_DAG + 5 * 60_000 < 24 * 3_600_000, 'teller + opruimritme blijft onder 24 uur');
+  const { opslag, vb } = opzet();
+  const t = gesprek(vb);
+  await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Wat kost Websitegesprek?', pagina: 'https://websitegesprek.nl/' });
+  const rijen = opslag.db.prepare("SELECT sleutel, verloopt FROM teller WHERE sleutel LIKE '%ip%'").all();
+  assert.ok(rijen.length > 0);
+  for (const r of rijen) assert.ok(r.verloopt - Date.now() < 24 * 3_600_000 - 5 * 60_000, r.sleutel);
+  assert.equal(opslag.db.prepare('PRAGMA secure_delete').get().secure_delete, 1);
+  const server = readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8');
+  assert.match(server, /setInterval\(\(\) => opslag\.opruimen\(config\.registerDagen\), 5 \* 60_000\)/);
+  const register = opslag.db.prepare('SELECT * FROM register').all();
+  for (const r of register) assert.ok(!JSON.stringify(r).includes('10.0.0.1'));
+});

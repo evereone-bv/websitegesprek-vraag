@@ -6,7 +6,7 @@ van websitegesprek.nl, via de Claude-API (werkruimte "vraagbaak" van EVEReONE B.
 Ontwerp en besluiten: `docs/voorstellen/websitegesprek-ontwerp-vraagbaak.md` in `evereone-bv/websitegesprek`
 (ontwerp 0.2, besluiten 398–402, voorwaarden Juridisch V1–V7 en VB1–VB10).
 
-## Hoe het werkt (versie 0.1.1)
+## Hoe het werkt (versie 0.1.3)
 
 ```
 websitegesprek.nl  vast blok (venster/blok-websitegesprek.html), laadt niets tot de tik
@@ -38,7 +38,21 @@ websitegesprek.nl  vast blok (venster/blok-websitegesprek.html), laadt niets tot
 
 ## Regels
 
-1. Geen geheimen in deze repository (ze is openbaar). De API-sleutel staat alleen in `/etc/vraag/vraag.env`.
-2. Testen: `npm test` (35 tests, nagebootste API). Echte testset alleen op de server (draait vanzelf).
-3. Prijzen in `src/config.mjs` controleren bij elke modelwissel (Haiku 5.5: $0,10/$0,50 per miljoen tokens tot 100.000
+1. Deze repository is bewust openbaar (VA2, Juridisch 14 nov): nooit sleutels, bezoekersgegevens, exports of
+   logboeken. De API-sleutel staat alleen in `/etc/vraag/vraag.env`; de test `VA2` controleert dit bij elke `npm test`.
+2. Testen: `npm test` (48 tests, nagebootste API). Echte testset alleen op de server (draait vanzelf).
+3. IP-codes (hash met dagelijks wisselend zout) staan nooit langer dan 24 uur in de opslag (VA3): tellers verlopen na
+   23 u 50 min, opruimen elke 5 minuten, SQLite met `secure_delete`.
+4. Prijzen in `src/config.mjs` controleren bij elke modelwissel (Haiku 5.5: $0,10/$0,50 per miljoen tokens tot 100.000
    tokens; x1,1 voor inference geo "us").
+
+## Wijzigingen
+
+1. 0.1.3 (14 nov 2026) – voorwaarden Juridisch: VA1 link 'Privacy' in het venster; VA2 repo bewust openbaar, test
+   zonder geheimen; VA3 IP-codes max. 24 uur; microfoon S1–S6: pas na een tik, stopt na het resultaat, na 30 s of bij
+   sluiten (S1), `processLocally` waar de browser het kent (S2), tekst in het invoerveld en de bezoeker verstuurt zelf
+   (S3), geen eigen geluidsopname (S4), vaste uitlegregel NL/EN onder het invoerveld (S5), voorlezen alleen met een
+   stem op het toestel (`localService`) (S6). Knop rechtsonder 48 px, even groot als de naar-boven-knop (Raymond 14 nov).
+   Microfoon voor bezoekers pas aan met privacyverklaring 1.8 (S7, `data-spraak="1"`).
+2. 0.1.2 – spraak (besluit 409) en venster in huisstijl.
+3. 0.1.1 – aan/uit via het blok op websitegesprek.nl (besluit 400).

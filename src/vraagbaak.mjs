@@ -9,6 +9,8 @@ import { geheim as haalGeheim, ipHash, maakPuzzel, controleerPuzzel, nieuwToken,
 
 const UUR = 3_600_000;
 const DAG = 24 * UUR;
+// VA3 (Juridisch 14 nov): tellers met een IP-code verlopen ruim binnen 24 uur (opruimen draait elke 5 minuten).
+export const IP_DAG = DAG - 10 * 60_000;
 const KWARTIER = 15 * 60_000;
 
 export const V1 = {
@@ -132,7 +134,7 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     if (!ruw.trim()) return { fout: 'leeg', status: 400 };
     if (ruw.length > config.maxVraagTekens) return { fout: 'te_lang', status: 413 };
     if (opslag.tel(`vraag:ip:${iph}:${uurVak(t0)}`, 1, UUR) > config.perIpUur) return { fout: 'te_vaak', status: 429 };
-    if (opslag.tel(`vraag:ipdag:${iph}:${dagVak(t0)}`, 1, DAG) > config.perIpDag) return { fout: 'te_vaak', status: 429 };
+    if (opslag.tel(`vraag:ipdag:${iph}:${dagVak(t0)}`, 1, IP_DAG) > config.perIpDag) return { fout: 'te_vaak', status: 429 };
     opslag.tel(`server:uur:${uurVak(t0)}`, 1, UUR);
 
     const { tekst: schoon } = schoonOp(ruw);
