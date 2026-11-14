@@ -202,3 +202,22 @@ test('knop rechtsonder 48 px, even groot als de naar-boven-knop (Raymond 14 nov)
   const html = readFileSync(new URL('../venster/zweef-kaart.html', import.meta.url), 'utf8');
   assert.match(html, /\.wg-zweef>summary\{list-style:none;width:48px;height:48px;/);
 });
+
+test('zweef-kaart: data-zichtbaar="test" toont de chat alleen met ?vraagbaak=test (besluit 421)', () => {
+  const html = readFileSync(new URL('../venster/zweef-kaart.html', import.meta.url), 'utf8');
+  const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'));
+  const draai = (attrs, search) => {
+    const summary = { setAttribute() {} };
+    const blok = { className: '', getAttribute: (n) => (n in attrs ? attrs[n] : null), parentNode: { className: '', querySelector: () => summary } };
+    const knop = { addEventListener() {} };
+    const document = { getElementById: (id) => (id === 'wg-vraag-blok' ? blok : knop), createElement() { return {}; }, head: { appendChild() {} } };
+    vm.runInNewContext(script, { document, location: { search }, window: {} });
+    return blok.className.includes('wg-vraag-aan');
+  };
+  assert.equal(draai({ 'data-aan': '0' }, ''), false);
+  assert.equal(draai({ 'data-aan': '0' }, '?vraagbaak=test'), true);
+  assert.equal(draai({ 'data-aan': '1' }, ''), true);
+  assert.equal(draai({ 'data-aan': '1', 'data-zichtbaar': 'test' }, ''), false);
+  assert.equal(draai({ 'data-aan': '1', 'data-zichtbaar': 'test' }, '?vraagbaak=test'), true);
+  assert.equal(draai({ 'data-aan': '1', 'data-zichtbaar': 'test' }, '?utm=x'), false);
+});

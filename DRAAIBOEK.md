@@ -36,6 +36,9 @@ De server is aan als alle drie kloppen (modus "auto", standaard):
    werkbon na 'publiceren' van Raymond);
 3. er is geen storing (sleutel, tegoed, foutpercentage, kostenpiek, rode dagproef) en geen plafond bereikt.
 
+Testmodus (besluit 421): `data-aan="1"` plus `data-zichtbaar="test"` = server aan, maar bezoekers zien de chat alleen met
+`?vraagbaak=test` in het adres. Voor de livegang `data-zichtbaar` weghalen.
+
 Uitzetten: `data-aan="0"` op de site (binnen 15 minuten uit op de server; de knop verdwijnt meteen).
 Noodgeval: `VRAAG_ACTIEF=0` in `/etc/vraag/vraag.env` zet hem altijd uit (vraagt SSH).
 Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
