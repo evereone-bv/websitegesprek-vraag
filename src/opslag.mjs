@@ -13,6 +13,7 @@ export function openOpslag(map) {
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA busy_timeout = 3000;
+    PRAGMA secure_delete = ON;
     CREATE TABLE IF NOT EXISTS teller (sleutel TEXT PRIMARY KEY, n REAL NOT NULL, verloopt INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS gesprek (token TEXT PRIMARY KEY, iphash TEXT NOT NULL, verloopt INTEGER NOT NULL,
       vragen INTEGER NOT NULL DEFAULT 0, beurten TEXT NOT NULL DEFAULT '[]');

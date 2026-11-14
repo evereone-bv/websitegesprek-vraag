@@ -49,3 +49,9 @@ Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
 
 1. Het venster op websitegesprek.nl valt na 12 s terug op WhatsApp en mail (ontwerp §3); de site lijdt er niet onder.
 2. Nieuwe server: stap A en B opnieuw (alles staat in GitHub; het register staat dagelijks op rapportage).
+
+## B3. Microfoonknop aan of uit (besluit 409)
+
+1. Pas na akkoord van Juridisch.
+2. Werkbon op websitegesprek.nl: in het zwevende kaartje `data-spraak="0"` vervangen door `data-spraak="1"` (staat naast `data-aan`).
+3. Zonder akkoord is de knop alleen te zien met `?vraagbaak=test`. Voorlezen staat altijd aan en vraagt niets.

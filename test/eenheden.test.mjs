@@ -156,3 +156,24 @@ test('beoordeel: verboden inhoud en doorverwijzing', () => {
   assert.equal(beoordeel(item, { antwoord: 'Geen idee', doorverwezen: true }).goed, true);
   assert.equal(beoordeel(item, { antwoord: 'Je krijgt korting', doorverwezen: false }).goed, false);
 });
+
+test('VA2: openbare repository bevat geen sleutels, bezoekersgegevens, exports of logboeken', async () => {
+  const { readdirSync, readFileSync, statSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const wortel = new URL('..', import.meta.url).pathname;
+  const bestanden = [];
+  (function loop(map) {
+    for (const n of readdirSync(map)) {
+      if (n === '.git' || n === 'node_modules') continue;
+      const p = join(map, n);
+      if (statSync(p).isDirectory()) loop(p); else bestanden.push(p);
+    }
+  })(wortel);
+  for (const p of bestanden) {
+    const rel = p.slice(wortel.length);
+    assert.ok(!/(^|\/)\.env|\.db$|\.sqlite$|\.log$|\.csv$|export/i.test(rel), `verboden bestand: ${rel}`);
+    const t = readFileSync(p, 'utf8');
+    assert.ok(!/sk-ant-(api|admin)[0-9A-Za-z_-]{20,}/.test(t), `sleutel in ${rel}`);
+    assert.ok(!/BEGIN [A-Z ]*PRIVATE KEY/.test(t), `privésleutel in ${rel}`);
+  }
+});
