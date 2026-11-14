@@ -16,14 +16,14 @@
     titel: 'Stel je vraag', plaats: 'Typ je vraag…', stuur: 'Stuur', sluit: 'Sluiten', bezig: 'Even denken…', nogEven: 'Nog even…',
     mislukt: 'Dat lukt nu even niet. Vraag het via WhatsApp of mail, dan krijg je persoonlijk antwoord.',
     uit: 'De vraagbaak is even niet beschikbaar. Je vraag is welkom via WhatsApp of mail; je krijgt dan persoonlijk antwoord.',
-    naam: 'Websitegesprek', mens: 'Liever een mens?', wa: 'WhatsApp', of: 'of', mail: 'mail ons', bron: 'Lees meer', nuttig: 'Was dit nuttig?', ja: 'Ja, nuttig', nee: 'Nee, niet nuttig',
+    naam: 'Websitegesprek', mens: 'Liever een mens?', mic: 'Vraag inspreken', micStop: 'Stoppen met luisteren', luister: 'Ik luister…', spraakRegel: 'Je spraak wordt door Apple of Google omgezet in tekst.', lees: 'Voorlezen', leesStop: 'Stoppen met voorlezen', geenMic: 'Inspreken lukt niet. Gebruik het microfoontje van je toetsenbord of typ je vraag.', wa: 'WhatsApp', of: 'of', mail: 'mail ons', bron: 'Lees meer', nuttig: 'Was dit nuttig?', ja: 'Ja, nuttig', nee: 'Nee, niet nuttig',
     v1: 'Je praat met een AI-assistent (Claude). Antwoorden kunnen fouten bevatten; wat telt, staat op onze website en in onze voorwaarden. Deel geen persoonsgegevens; liever een mens? Vraag het via WhatsApp of mail.',
     vol: 'Dit gesprek is vol. Begin een nieuw gesprek of vraag het via WhatsApp.', tegrootte: 'Je vraag is te lang (max. 500 tekens).', start: 'Verbinden…'
   } : {
     titel: 'Ask your question', plaats: 'Type your question…', stuur: 'Send', sluit: 'Close', bezig: 'Thinking…', nogEven: 'Almost there…',
     mislukt: "That isn't working right now. Ask us via WhatsApp or email for a personal answer.",
     uit: 'The assistant is not available right now. Ask us via WhatsApp or email for a personal answer.',
-    naam: 'Websitegesprek', mens: 'Prefer a human?', wa: 'WhatsApp', of: 'or', mail: 'email us', bron: 'Read more', nuttig: 'Was this helpful?', ja: 'Yes, helpful', nee: 'No, not helpful',
+    naam: 'Websitegesprek', mens: 'Prefer a human?', mic: 'Speak your question', micStop: 'Stop listening', luister: 'Listening…', spraakRegel: 'Your speech is turned into text by Apple or Google.', lees: 'Read aloud', leesStop: 'Stop reading', geenMic: "Speaking isn't working. Use your keyboard's microphone or type your question.", wa: 'WhatsApp', of: 'or', mail: 'email us', bron: 'Read more', nuttig: 'Was this helpful?', ja: 'Yes, helpful', nee: 'No, not helpful',
     v1: "You're chatting with an AI assistant (Claude). Answers may contain mistakes; what counts is on our website and in our terms. Don't share personal data; prefer a human? Ask us via WhatsApp or email.",
     vol: 'This conversation is full. Start a new one or ask via WhatsApp.', tegrootte: 'Your question is too long (max. 500 characters).', start: 'Connecting…'
   };
@@ -118,16 +118,24 @@
     '#wgv textarea::placeholder{color:#5B6775}' +
     '#wgv textarea:focus-visible,#wgv button:focus-visible,#wgv a:focus-visible{outline:3px solid #0E1B2C;outline-offset:2px}' +
     '#wgv .k button:focus-visible{outline-color:#F2B33D}' +
+    '#wgv .mi{flex:0 0 48px;display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:12px;background:#fff;border:2px solid #0E1B2C;color:#0E1B2C}' +
+    '#wgv .mi svg{width:22px;height:22px;display:block}' +
+    '#wgv .mi[aria-pressed=true]{background:#0E1B2C;color:#F2B33D}' +
+    '@media (prefers-reduced-motion:no-preference){#wgv .mi[aria-pressed=true]{animation:wgvPuls 1.2s ease-in-out infinite}@keyframes wgvPuls{50%{box-shadow:0 0 0 6px rgba(242,179,61,.45)}}}' +
+    '#wgv .mi[hidden],#wgv .sr[hidden]{display:none}' +
+    '#wgv .sr{margin:-8px 0 0;padding:0 24px 8px;font-size:12px;line-height:1.4;color:#5B6775}' +
     '#wgv .s{min-height:48px;padding:0 24px;border-radius:12px;background:#F2B33D;color:#0E1B2C;font-weight:700}' +
     '#wgv .s[disabled],#wgv textarea[disabled]{opacity:.55;cursor:default}' +
     '#wgv .t{margin:0;padding:0 24px 16px;font-size:14px;line-height:1.5;color:#5B6775}' +
     '#wgv .t a{display:inline-block;padding:4px 0;color:#0E1B2C;font-weight:600;text-decoration:underline;text-underline-offset:2px}' +
-    '@media (max-width:480px){#wgv{left:0;right:0;bottom:0;width:100%;height:min(88dvh,640px);border-radius:16px 16px 0 0;border-bottom:0}#wgv .k{padding-left:16px}#wgv .m,#wgv .l,#wgv form{padding-left:16px;padding-right:16px}#wgv .t{padding:0 16px max(16px,env(safe-area-inset-bottom))}}' +
+    '@media (max-width:480px){#wgv{left:0;right:0;bottom:0;width:100%;height:min(88dvh,640px);border-radius:16px 16px 0 0;border-bottom:0}#wgv .k{padding-left:16px}#wgv .m,#wgv .l,#wgv form,#wgv .sr{padding-left:16px;padding-right:16px}#wgv .t{padding:0 16px max(16px,env(safe-area-inset-bottom))}}' +
     '@media (prefers-reduced-motion:no-preference){#wgv{animation:wgvIn .2s ease-out}@keyframes wgvIn{from{opacity:0}to{opacity:1}}}' +
     '@media print{#wgv{display:none}}';
 
   // Logo Websitegesprek, gelijk aan de kop van websitegesprek.nl (zodat een schermafbeelding herkenbaar van ons is).
   var LOGO = '<svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#F2B33D"/><g transform="translate(0,16)"><path d="M118 150a46 46 0 0 1 46-46h184a46 46 0 0 1 46 46v136a46 46 0 0 1-46 46H236l-82 70v-70a46 46 0 0 1-36-45z" fill="#0E1B2C"/><g stroke="#F2B33D" stroke-width="26" stroke-linecap="round"><line x1="196" y1="196" x2="196" y2="240"/><line x1="256" y1="168" x2="256" y2="268"/><line x1="316" y1="196" x2="316" y2="240"/></g></g></svg>';
+  var MIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+  var LUID = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>';
   var DUIM_OP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11v9H4v-9h3zM7 11l4-8c1.7 0 3 1.3 3 3v3h5.2c1.3 0 2.2 1.2 1.9 2.4l-1.6 7c-.2.9-1 1.6-1.9 1.6H7"/></svg>';
   var DUIM_NEER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 13V4h3v9h-3zM17 13l-4 8c-1.7 0-3-1.3-3-3v-3H4.8c-1.3 0-2.2-1.2-1.9-2.4l1.6-7C4.7 4.7 5.5 4 6.4 4H17"/></svg>';
 
@@ -157,6 +165,70 @@
       sessionStorage.setItem(OPSLAG, JSON.stringify(items.slice(-40)));
     } catch (e) { /* sessionStorage kan ontbreken: niet erg */ }
   }
+  /* ---------- spraak (besluit 409) ---------- */
+  // Voorlezen gebeurt helemaal op de telefoon (speechSynthesis): er gaat niets naar buiten.
+  var KAN_LEZEN = typeof window.speechSynthesis !== 'undefined' && typeof window.SpeechSynthesisUtterance !== 'undefined';
+  // Inspreken via de spraakherkenning van de browser (Safari: Apple, Chrome: Google). Geen knop als de browser het niet kan.
+  var Herkenning = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  var gesproken = false; // vraag ingesproken: lees het antwoord dan vanzelf voor
+  var leesKnop = null;
+  function stem() {
+    var lijstStemmen = window.speechSynthesis.getVoices() || [];
+    var taalcode = NL ? 'nl' : 'en';
+    for (var i = 0; i !== lijstStemmen.length; i++) if (String(lijstStemmen[i].lang).toLowerCase().indexOf(taalcode) === 0) return lijstStemmen[i];
+    return null;
+  }
+  function stopLezen() {
+    try { if (KAN_LEZEN) window.speechSynthesis.cancel(); } catch (e) { /* niets */ }
+    if (leesKnop) { leesKnop.setAttribute('aria-pressed', 'false'); leesKnop.setAttribute('aria-label', T.lees); }
+    leesKnop = null;
+  }
+  function leesVoor(tekst, knopje) {
+    if (!KAN_LEZEN) return;
+    var wasZelfde = leesKnop === knopje;
+    stopLezen();
+    if (wasZelfde) return;
+    // Voorlezen mag nooit het antwoord breken: elke fout stil afvangen.
+    try {
+      var u = new window.SpeechSynthesisUtterance(tekst);
+      u.lang = NL ? 'nl-NL' : 'en-GB';
+      var s = stem(); if (s) u.voice = s;
+      u.onend = u.onerror = function () { if (leesKnop === knopje) stopLezen(); };
+      leesKnop = knopje;
+      knopje.setAttribute('aria-pressed', 'true'); knopje.setAttribute('aria-label', T.leesStop);
+      window.speechSynthesis.speak(u);
+    } catch (e) { stopLezen(); }
+  }
+  var herk = null;
+  function luisteren(micKnop) {
+    if (herk) { herk.stop(); return; }
+    stopLezen();
+    try { herk = new Herkenning(); } catch (e) { herk = null; bericht('a', T.geenMic); return; }
+    herk.lang = NL ? 'nl-NL' : 'en-GB';
+    herk.interimResults = true;
+    herk.maxAlternatives = 1;
+    var definitief = '';
+    var vorige = invoer.placeholder;
+    micKnop.setAttribute('aria-pressed', 'true'); micKnop.setAttribute('aria-label', T.micStop);
+    invoer.placeholder = T.luister;
+    herk.onresult = function (ev) {
+      var tussen = '';
+      for (var i = ev.resultIndex; i !== ev.results.length; i++) {
+        if (ev.results[i].isFinal) definitief += ev.results[i][0].transcript; else tussen += ev.results[i][0].transcript;
+      }
+      invoer.value = (definitief + tussen).trim();
+    };
+    herk.onerror = function (ev) { if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed' || ev.error === 'audio-capture') bericht('a', T.geenMic); };
+    herk.onend = function () {
+      herk = null;
+      micKnop.setAttribute('aria-pressed', 'false'); micKnop.setAttribute('aria-label', T.mic);
+      invoer.placeholder = vorige;
+      var v = definitief.trim();
+      if (v) { gesproken = true; invoer.value = ''; stuur(v); }
+    };
+    try { herk.start(); } catch (e) { herk = null; micKnop.setAttribute('aria-pressed', 'false'); bericht('a', T.geenMic); }
+  }
+
   function bericht(soort, tekst, bron, id) {
     var b = maak('div', { class: 'b ' + soort, 'data-t': tekst });
     b.appendChild(document.createTextNode(tekst));
@@ -175,7 +247,14 @@
       var nee = icoonKnop(DUIM_NEER, T.nee);
       ja.onclick = function () { duim(id, 1, ja, nee); };
       nee.onclick = function () { duim(id, -1, nee, ja); };
-      d.appendChild(ja); d.appendChild(nee); b.appendChild(d);
+      d.appendChild(ja); d.appendChild(nee);
+      if (KAN_LEZEN) {
+        var lees = icoonKnop(LUID, T.lees);
+        lees.onclick = function () { leesVoor(tekst, lees); };
+        d.appendChild(lees);
+        if (gesproken) { gesproken = false; leesVoor(tekst, lees); }
+      }
+      b.appendChild(d);
     }
     lijst.appendChild(b);
     lijst.scrollTop = lijst.scrollHeight;
@@ -245,7 +324,7 @@
     namen.appendChild(maak('span', { class: 'sub' }, T.titel));
     merk.appendChild(logo); merk.appendChild(namen); k.appendChild(merk);
     var x = maak('button', { type: 'button', class: 'x', 'aria-label': T.sluit });
-    x.onclick = function () { el.style.display = 'none'; };
+    x.onclick = function () { stopLezen(); if (herk) herk.abort(); el.style.display = 'none'; };
     k.appendChild(x); el.appendChild(k);
     var melding = maak('div', { class: 'm' }, T.v1); // V1: altijd zichtbaar vóór de eerste vraag
     el.appendChild(melding);
@@ -255,7 +334,15 @@
     invoer = maak('textarea', { rows: '1', maxlength: '500', placeholder: T.plaats, 'aria-label': T.plaats });
     knop = maak('button', { type: 'submit', class: 's' }, T.stuur);
     invoer.disabled = true; knop.disabled = true;
-    f.appendChild(invoer); f.appendChild(knop); el.appendChild(f);
+    var mic = null;
+    if (Herkenning) {
+      mic = icoonKnop(MIC, T.mic);
+      mic.className = 'mi'; mic.hidden = true; mic.disabled = true;
+      mic.onclick = function () { luisteren(mic); };
+    }
+    f.appendChild(invoer); if (mic) f.appendChild(mic); f.appendChild(knop); el.appendChild(f);
+    var spraakRegel = maak('p', { class: 'sr', hidden: 'hidden' }, T.spraakRegel);
+    el.appendChild(spraakRegel);
     // Onderregel (wens Raymond 13 nov): geen knoppenrij meer, wel altijd de weg naar een mens.
     var t = maak('p', { class: 't' });
     t.appendChild(document.createTextNode(T.mens + ' '));
@@ -277,6 +364,10 @@
       if (!r) return terugval(T.mislukt);
       if (!r.aan) return terugval(T.uit);
       invoer.disabled = false; knop.disabled = false; invoer.focus();
+      // Microfoon alleen na akkoord Juridisch (blok op de site data-spraak="1", of VRAAG_SPRAAK=1 op de server) of voor de proef met ?vraagbaak=test.
+      var blok = document.getElementById('wg-vraag-blok');
+      var spraakAan = r.spraak || (blok ? blok.getAttribute('data-spraak') === '1' : false);
+      if (mic && (spraakAan || location.search.indexOf('vraagbaak=test') > -1)) { mic.hidden = false; mic.disabled = false; spraakRegel.hidden = false; }
     });
   }
 

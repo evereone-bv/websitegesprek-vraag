@@ -115,7 +115,7 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     const tok = nieuwToken();
     opslag.db.prepare('INSERT INTO gesprek (token, iphash, verloopt) VALUES (?, ?, ?)').run(tok, iph, klok() + config.tokenMinuten * 60_000);
     const s = status();
-    return { token: tok, geldig_minuten: config.tokenMinuten, aan: s.aan, v1: V1 };
+    return { token: tok, geldig_minuten: config.tokenMinuten, aan: s.aan, v1: V1, spraak: !!config.spraak };
   }
 
   // ---- vraag ----

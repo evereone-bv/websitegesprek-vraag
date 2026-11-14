@@ -204,3 +204,8 @@ test('proef met kandidaat-kennisbank: 10 feitvragen, apart van de live opslag', 
   assert.equal(api.aanroepen.length, 10);
   assert.equal(u.ok, false, 'een api die altijd hetzelfde zegt, haalt de proef niet');
 });
+
+test('besluit 409: microfoon voor bezoekers standaard uit, aan met VRAAG_SPRAAK=1', () => {
+  assert.equal(gesprek(opzet().vb).spraak, false);
+  assert.equal(gesprek(opzet({ VRAAG_SPRAAK: '1' }).vb).spraak, true);
+});

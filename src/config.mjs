@@ -13,6 +13,8 @@ export function laadConfig(env = process.env) {
   return {
     // Aan/uit (besluit 400): 'auto' (standaard) = aan zodra het blok op websitegesprek.nl data-aan="1" heeft
     // én de volledige testset voor dit model en deze instructie is geslaagd. '0' = altijd uit, '1' = handmatig aan.
+    // Besluit 409: microfoonknop voor bezoekers pas aan na akkoord Juridisch (VRAAG_SPRAAK=1). Voorlezen staat altijd aan.
+    spraak: env.VRAAG_SPRAAK === '1',
     modus: env.VRAAG_ACTIEF === '1' ? 'aan' : env.VRAAG_ACTIEF === '0' ? 'uit' : 'auto',
     get actief() { return this.modus !== 'uit'; },
     siteUrl: env.VRAAG_SITE_URL || 'https://websitegesprek.nl/',

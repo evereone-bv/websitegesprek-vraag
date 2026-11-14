@@ -48,3 +48,20 @@ test('venster: geen innerHTML en links alleen naar websitegesprek.nl', () => {
   assert.match(js, /hostname === 'websitegesprek\.nl'/);
   assert.match(js, /credentials: 'omit'/);
 });
+
+test('besluit 409: microfoon alleen bij spraak van de server of de testlink, voorlezen op het toestel', () => {
+  const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
+  assert.match(js, /window\.SpeechRecognition \|\| window\.webkitSpeechRecognition/);
+  assert.match(js, /var spraakAan = r\.spraak \|\| \(blok \? blok\.getAttribute\('data-spraak'\) === '1' : false\);/);
+  assert.match(js, /spraakAan \|\| location\.search\.indexOf\('vraagbaak=test'\)/);
+  assert.match(js, /mic\.hidden = true; mic\.disabled = true;/);
+  assert.match(js, /speechSynthesis/);
+  // Geen opname of verzending van geluid door ons: geen MediaRecorder of getUserMedia.
+  assert.ok(!/MediaRecorder|getUserMedia/.test(js));
+  assert.match(js, /Je spraak wordt door Apple of Google omgezet in tekst\./);
+});
+
+test('voorlezen kan het antwoord nooit breken (fout bij speak wordt afgevangen)', () => {
+  const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
+  assert.match(js, /try \{\s*var u = new window\.SpeechSynthesisUtterance[\s\S]*?window\.speechSynthesis\.speak\(u\);\s*\} catch \(e\) \{ stopLezen\(\); \}/);
+});
