@@ -1,7 +1,7 @@
 // Besluit 480: het register elke nacht ondertekend naar rapportage sturen (12 maanden bewaren).
 // Geen taalmodel, geen open eindpunt: de vraagserver duwt, rapportage controleert handtekening, tijd en velden.
 // Ontwerp: websitegesprek-reviewdossier-vraagbaak-register-v2 (review V1–V13) en voorwaarden Juridisch RV1–RV9.
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 // RV2: alleen deze velden; nooit IP-code, token, gesprek of beurten.
 export const VELDEN = ['id', 'tijd', 'pagina', 'vraag', 'antwoord', 'bron', 'onderwerp', 'zeker', 'doorverwezen', 'vervangen',
@@ -63,10 +63,22 @@ export function maakReeksen(regels) {
   return reeksen;
 }
 
-// Zoals Stripe: HMAC-SHA256 over "t.ruwe_body"; bij elke poging een nieuwe tijd en handtekening.
-export function onderteken(body, sleutel, tSec) {
-  const v1 = createHmac('sha256', sleutel).update(`${tSec}.${body}`).digest('hex');
+// Zoals Stripe: HMAC-SHA256 over "label.t.ruwe_body"; bij elke poging een nieuwe tijd en handtekening.
+// V20.1: een vast label per richting, zodat een bericht uit de ene richting nooit als de andere geldt.
+export const LABEL_EXPORT = 'wg-export-v1';
+export const LABEL_WISLIJST = 'wg-wislijst-v1';
+export function onderteken(body, sleutel, tSec, label = LABEL_EXPORT) {
+  const v1 = createHmac('sha256', sleutel).update(`${label}.${tSec}.${body}`).digest('hex');
   return `t=${tSec},v1=${v1}`;
+}
+
+// Controle van een ondertekend antwoord van rapportage (wislijst). Venster 300 s, vergelijken in constante tijd.
+export function handtekeningGeldig(kop, body, sleutel, nuMs, label = LABEL_WISLIJST) {
+  const m = /^t=(\d+),v1=([0-9a-f]{64})$/.exec(String(kop || ''));
+  if (!m || Math.abs(nuMs / 1000 - Number(m[1])) > 300) return false;
+  const verwacht = Buffer.from(createHmac('sha256', sleutel).update(`${label}.${m[1]}.${body}`).digest('hex'));
+  const gekregen = Buffer.from(m[2]);
+  return verwacht.length === gekregen.length && timingSafeEqual(verwacht, gekregen);
 }
 
 // C7: alleen vaste labels, nooit tekst uit een antwoord.
@@ -85,7 +97,9 @@ async function eenPoging({ url, sleutel, body, fetchFn, nu }) {
     const r = await fetchFn(url, { method: 'POST', signal: ctrl.signal, headers: { 'content-type': 'application/json',
       'x-wg-handtekening': onderteken(body, sleutel, Math.floor(nu() / 1000)) }, body });
     if (r.status !== 200) return { ok: false, label: foutLabel(r.status) };
-    try { return { ok: true, data: await r.json() }; } catch { return { ok: false, label: 'antwoord_onleesbaar' }; }
+    const ruw = await r.text();
+    if (ruw.length > 256 * 1024) return { ok: false, label: 'antwoord_te_groot' };
+    try { return { ok: true, data: JSON.parse(ruw), ruw, kop: r.headers?.get?.('x-wg-handtekening') || '' }; } catch { return { ok: false, label: 'antwoord_onleesbaar' }; }
   } catch (e) {
     return { ok: false, label: e?.name === 'AbortError' ? 'tijd' : 'netwerk' };
   } finally { clearTimeout(klok); }
@@ -127,17 +141,57 @@ function noteerGeslaagd(opslag, nu, afgewezenErbij) {
   opslag.zetStaat('export:status', { ...s, laatst_geslaagd: nu, mislukte_nachten: 0, afgewezen_totaal: (s.afgewezen_totaal || 0) + afgewezenErbij });
 }
 
+// V16/V20/H6: de wislijst uit het ondertekende antwoord van rapportage. Alleen wissen op antwoordnummer;
+// niet of verkeerd ondertekend = negeren en alleen tellen; hooguit 500 nummers, elk op het vaste patroon.
+export const WIS_MAX = 500;
+const ANTWOORDNR = /^V-[A-HJ-NP-Z2-9]{6}$/;
+export function verwerkWislijst({ opslag, antwoord, sleutel, nu }) {
+  const lijst = antwoord?.data?.wislijst;
+  if (!Array.isArray(lijst)) return { gewist: 0, overgeslagen: 0, genegeerd: false };
+  if (!handtekeningGeldig(antwoord.kop, antwoord.ruw, sleutel, nu)) {
+    const s = opslag.staat('wis:status', {}) || {};
+    opslag.zetStaat('wis:status', { ...s, genegeerd: (s.genegeerd || 0) + 1 });
+    opslag.log('wissen', `wislijst genegeerd (handtekening ongeldig), ${Math.min(lijst.length, WIS_MAX)} nummers`);
+    return { gewist: 0, overgeslagen: 0, genegeerd: true };
+  }
+  const teMelden = new Set(opslag.staat('wis:te_melden', []) || []);
+  let gewist = 0; let overgeslagen = 0;
+  for (const item of lijst.slice(0, WIS_MAX)) {
+    const nr = String(item?.id ?? item ?? '');
+    if (!ANTWOORDNR.test(nr)) { overgeslagen++; continue; }
+    gewist += opslag.db.prepare('DELETE FROM register WHERE id = ?').run(nr).changes;
+    teMelden.add(nr);
+  }
+  overgeslagen += Math.max(0, lijst.length - WIS_MAX);
+  opslag.zetStaat('wis:te_melden', [...teMelden].slice(-WIS_MAX));
+  const s = opslag.staat('wis:status', {}) || {};
+  opslag.zetStaat('wis:status', { ...s, laatst: nu, overgeslagen: (s.overgeslagen || 0) + overgeslagen });
+  if (gewist || overgeslagen) opslag.log('wissen', `wislijst: ${gewist} regels gewist, ${overgeslagen} nummers overgeslagen`);
+  return { gewist, overgeslagen, genegeerd: false };
+}
+
+// De wislijst ophalen kan zodra adres en sleutel er zijn, ook als de export nog uit staat (V16).
+export function wislijstActief(config) { return !!(config.rapportageUrl && sleutelGeldig(config.rapportageSleutel)); }
+
 // Eén nachtelijke run. Geeft een samenvatting zonder inhoud terug.
 export async function stuurRegister({ config, opslag, fetchFn = fetch, nu = Date.now, wacht }) {
-  if (!exportActief(config)) return { gedaan: false, reden: 'export_uit' };
+  if (!wislijstActief(config)) return { gedaan: false, reden: 'export_uit' };
   const t = nu();
-  const regels = kiesRegels(opslag.db, opslag.staat('export:cursor', null), t).map(schoonRegel);
-  const samen = { gedaan: true, verstuurd: 0, opgeslagen: 0, al_aanwezig: 0, afgewezen: 0, reeksen: 0 };
-  for (const reeks of maakReeksen(regels).slice(0, GRENZEN.verzoekenPerNacht)) {
-    const body = JSON.stringify({ regels: reeks });
+  const exporteren = exportActief(config);
+  const regels = exporteren ? kiesRegels(opslag.db, opslag.staat('export:cursor', null), t).map(schoonRegel) : [];
+  const samen = { gedaan: true, export: exporteren, verstuurd: 0, opgeslagen: 0, al_aanwezig: 0, afgewezen: 0, reeksen: 0, gewist: 0 };
+  const reeksen = maakReeksen(regels).slice(0, GRENZEN.verzoekenPerNacht);
+  if (!reeksen.length) reeksen.push([]); // V16: ook zonder nieuwe regels de wislijst ophalen
+  for (const [i, reeks] of reeksen.entries()) {
+    // V20.3: alleen nummers die de vraagserver sinds de vorige levering wiste, alleen in het eerste verzoek.
+    const gemeld = i === 0 ? (opslag.staat('wis:te_melden', []) || []) : [];
+    const body = JSON.stringify({ regels: reeks, gewist: gemeld });
     const r = await verstuur({ url: config.rapportageUrl, sleutel: config.rapportageSleutel, body, fetchFn, nu, wacht });
     const v = r.ok ? verwerkAntwoord(r.data, reeks.length) : r;
     if (!v.ok) { noteerFout(opslag, v.label, t); return { ...samen, fout: v.label }; }
+    if (gemeld.length) opslag.zetStaat('wis:te_melden', (opslag.staat('wis:te_melden', []) || []).filter((n) => !gemeld.includes(n)));
+    samen.gewist += verwerkWislijst({ opslag, antwoord: r, sleutel: config.rapportageSleutel, nu: t }).gewist;
+    if (!reeks.length) continue;
     for (const a of v.afgewezen) opslag.log('export', `afgewezen ${a.id}: ${String(a.reden || '').replace(/[^a-z_]/g, '').slice(0, 30)}`);
     opslag.zetStaat('export:cursor', cursorVan(reeks[reeks.length - 1]));
     Object.assign(samen, { verstuurd: samen.verstuurd + reeks.length, opgeslagen: samen.opgeslagen + v.opgeslagen,
@@ -181,6 +235,8 @@ export function exportStatus({ config, opslag, nu = Date.now() }) {
     afgewezen_totaal: s.afgewezen_totaal || 0,
     mislukte_nachten: mislukt,
     alarm: actief && (mislukt >= 2 || oudsteDagen >= 7),
+    // V20/H6: alleen tellers en tijden, geen nummers.
+    wislijst: (() => { const w = opslag.staat('wis:status', {}) || {}; return { actief: wislijstActief(config), laatst: w.laatst ? new Date(w.laatst).toISOString() : null, genegeerd: w.genegeerd || 0, overgeslagen: w.overgeslagen || 0, te_melden: (opslag.staat('wis:te_melden', []) || []).length }; })(),
   };
 }
 

@@ -85,6 +85,9 @@ Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
 
 Ontwerp en voorwaarden: websitegesprek-reviewdossier-vraagbaak-register-v2 en -aanvulling (review V1–V13), Juridisch RV1–RV9.
 
+0. **Ondertekenen (V20.1):** elk bericht van de vraagserver naar rapportage is ondertekend over `wg-export-v1.<tijd>.<body>`, elk antwoord
+   van rapportage met de wislijst over `wg-wislijst-v1.<tijd>.<body>` (HMAC-SHA256, venster 300 s). Een bericht met het label van de
+   andere richting telt niet.
 1. **Wat:** elke nacht om 03:17 stuurt `vraag-export.timer` (geïnstalleerd door `deploy/install.sh`) de regels van het register
    die ouder zijn dan 1 uur ondertekend naar rapportage (`src/doorsturen.mjs`). Alleen de vaste velden (RV2), nooit IP-code, token
    of gesprek. Rapportage bewaart 12 maanden. Stand zonder inhoud: `/healthz` › `export` (alarm bij 2 mislukte nachten of 7 dagen achterstand).
@@ -98,12 +101,26 @@ Ontwerp en voorwaarden: websitegesprek-reviewdossier-vraagbaak-register-v2 en -a
 5. **Aanzetten (na akkoord):** `VRAAG_EXPORT=aan` in `/etc/vraag/vraag.env` en `systemctl restart vraag.service`.
 6. **Sleutel vervangen zonder uitval (S5):** in wp-config.php de huidige sleutel eerst ook als `WG_VRAAG_SLEUTEL_OUD` zetten, dan stap 3
    (nieuwe sleutel als `WG_VRAAG_SLEUTEL`), na één geslaagde nacht `WG_VRAAG_SLEUTEL_OUD` weghalen. Halfjaarlijks, samen met de API-sleutel.
-7. **Eén regel wissen op verzoek van een bezoeker (RV5):** het verzoek komt via mail of WhatsApp, met het antwoordnummer uit het bericht (besluit 479).
-   (a) Vraagserver: in de container `node src/beheer.mjs wis-antwoord V-XXXXXX` (logt alleen het nummer). (b) Rapportage: de vaste actie
-   `wis_antwoord` van `evereone/vraagbaak-register` via de goedkeuringslink (account-plugin 1.9.0). Eerst (a), dan (b), zodat de regel niet terugkomt.
+7. **Eén regel wissen op verzoek van een bezoeker (RV5, V16, H4, H5):**
+   - **Tot account-plugin 1.9.0 live is (HB7):** Raymond meldt het verzoek met het antwoordnummer in een chat in WG - Doorontwikkeling.
+     Claude wist binnen een week na die melding op de vraagserver: TCP 22 tijdelijk open, in de container `node src/beheer.mjs wis-antwoord V-XXXXXX`
+     (logt alleen het nummer), TCP 22 weer dicht. Staat de export al aan, dan ook op rapportage (vaste actie, zodra er is).
+   - **Met 1.9.0:** Raymond typt in een chat "wis antwoord V-XXXXXX" en keurt de goedkeuringslink goed. Rapportage wist meteen en zet het nummer
+     40 dagen op de wislijst (alleen nummer en datum, H4). De vraagserver haalt de wislijst elke nacht op in het ondertekende antwoord
+     (label `wg-wislijst-v1`, ook als de export uit staat), wist de regel en meldt het nummer de nacht erna terug. Een niet of verkeerd
+     ondertekende wislijst wordt genegeerd en alleen geteld (H6; zie `/healthz` › `export.wislijst`).
+   - **Antwoord aan de bezoeker (H5):** "gewist" pas als rapportage gewist heeft, het nummer op de wislijst staat en een verwerkchat met dat
+     nummer verwijderd is. Bij een onbekend nummer letterlijk: "Onder dit antwoordnummer staat bij ons niets (meer)." Geen inhoud van de vraag
+     terugsturen. Uiterlijk binnen een maand. Daarna het bericht van de bezoeker verwijderen (H4).
+   - **Na een echte terugzetting van rapportage (H7):** de wis-antwoorden van de laatste 40 dagen opnieuw uitvoeren met de nummers uit het
+     logboek van de vraagserver (`node src/beheer.mjs logboek`, regels `wissen`).
 8. **Wissen:** vraagserver na 30 dagen (met export: als verstuurd, uiterlijk na 35 dagen, dan geteld in het logboek); rapportage na 12 maanden.
    Dit is de vastgelegde uitzondering op "nooit definitief verwijderen" (besluit 480, K4).
 9. **Terugdraaien (C6), in deze volgorde:** (a) eerst rapportage: account-plugin terug naar 1.8.5 via `evereone/orders action=account_update`
    (binnen een uur, zonder FTP); (b) dan de vraagserver: `VRAAG_EXPORT` weghalen, of een commit die in `install.sh` `systemctl disable --now vraag-export.timer`
    zet (voert de nachtelijke update uit). Na terugdraaien naar 1.8.5 binnen 30 dagen opnieuw aanzetten of de tabel op rapportage legen
    met akkoord van Raymond (V12).
+10. **Testvragen uit bezoekersvragen (review V18, keuze 18.1):** nooit in deze openbare repository. Alleen op de server in
+    `/data/testset-server.json` (zelfde vorm als `testset/testset.json`, in eigen woorden). Ze draaien mee in de volledige testset;
+    `/proef` toont van die vragen alleen id en uitkomst. Een GitHub-workflow draait `npm test` bij elke pull request, met een test die
+    antwoordnummers in bestanden, commitberichten en de pull request weigert en hard faalt als hij zijn bron niet kan lezen (V18.6).

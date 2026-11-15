@@ -1,11 +1,39 @@
 // Testset draaien tegen de echte vraagbaak-logica (ontwerp §4.7, V3).
 // Alleen op de vraagserver zelf (daar staat de sleutel), hooguit één keer per dag; niet in GitHub Actions.
 // Gebruik in de container:  node src/proef.mjs [--snel] [--model claude-haiku-5-5]
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
 import { normaliseer } from './kennisbank.mjs';
 
-export function laadTestset() {
-  return JSON.parse(readFileSync(new URL('../testset/testset.json', import.meta.url), 'utf8'));
+// Besluit 480 (review V18, keuze Raymond 18.1): testvragen die uit bezoekersvragen voortkomen staan nooit in de openbare
+// repository, alleen op de server in <datamap>/testset-server.json. Ze draaien mee in de volledige testset, maar /proef
+// toont van die vragen geen tekst (verbergServerVragen).
+export const SERVER_TESTSET = 'testset-server.json';
+export function laadTestset(dataMap = process.env.VRAAG_DATA_DIR) {
+  const basis = JSON.parse(readFileSync(new URL('../testset/testset.json', import.meta.url), 'utf8'));
+  const pad = dataMap && dataMap !== ':memory:' ? join(dataMap, SERVER_TESTSET) : '';
+  if (!pad || !existsSync(pad)) return basis;
+  const ruw = readFileSync(pad, 'utf8');
+  const extra = JSON.parse(ruw);
+  const items = (Array.isArray(extra) ? extra : extra.items || []).map((i) => ({ ...i, server: true }));
+  return { ...basis, versie: `${basis.versie}+s${createHash('sha256').update(ruw).digest('hex').slice(0, 8)}`, items: [...basis.items, ...items] };
+}
+
+// Voor de openbare uitslag op /proef: van servervragen alleen id en uitkomst, nooit tekst.
+export function verbergServerVragen(uitslag, ids) {
+  if (!ids.size) return uitslag;
+  const loop = (x) => {
+    if (Array.isArray(x)) return x.map(loop);
+    if (!x || typeof x !== 'object') return x;
+    if (ids.has(x.id)) {
+      const uit = { id: x.id, server: true };
+      for (const [k, v] of Object.entries(x)) if (typeof v === 'boolean' || typeof v === 'number') uit[k] = v;
+      return uit;
+    }
+    return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, loop(v)]));
+  };
+  return loop(uitslag);
 }
 
 // Beoordeelt één uitkomst {antwoord, bron, doorverwezen, nl_geldt, buiten} (besluit 448).
