@@ -316,3 +316,27 @@ test('besluit 448: proef gebruikt de beoordelaar met vast model, structured outp
   assert.equal(u.goed, 0, 'niet gegrond telt als fout');
   assert.match(u.uitslag[0].details[0].fouten.join(), /niet gegrond/);
 });
+
+test('421 (Juridisch): testmodus houdt het register; bij de eerste keer live wordt het één keer leeggemaakt', async () => {
+  let siteHtml = '<html><div id="wg-vraag-blok" data-aan="1" data-zichtbaar="test"></div></html>';
+  const api = nepApi();
+  const fetchFn = async (url, opts) => (String(url).startsWith('https://websitegesprek.nl') ? new Response(siteHtml, { status: 200 }) : api(url, opts));
+  const { vb, opslag } = opzet({}, fetchFn);
+  await vb.leesSchakelaar();
+  assert.equal(vb.gezondheid().testmodus, true);
+  const t = gesprek(vb);
+  await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Testvraag', pagina: 'https://websitegesprek.nl/' });
+  assert.equal(vb.gezondheid().vragen_24u, 1);
+  await vb.leesSchakelaar();
+  assert.equal(vb.gezondheid().vragen_24u, 1, 'in testmodus blijft het register staan');
+  siteHtml = '<html><div id="wg-vraag-blok" data-aan="1"></div></html>';
+  await vb.leesSchakelaar();
+  assert.equal(vb.gezondheid().vragen_24u, 0, 'bij livegang leeg');
+  assert.ok(vb.gezondheid().register_gewist_bij_live);
+  const t2 = gesprek(vb);
+  await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t2.token, vraagTekst: 'Eerste echte vraag', pagina: 'https://websitegesprek.nl/' });
+  await vb.leesSchakelaar();
+  assert.equal(vb.gezondheid().vragen_24u, 1, 'daarna niet nog eens wissen');
+  assert.ok(!JSON.stringify(vb.gezondheid()).includes('Testvraag'), 'healthz toont nooit inhoud');
+  assert.ok(opslag);
+});
