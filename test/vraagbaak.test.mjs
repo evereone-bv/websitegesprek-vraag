@@ -251,3 +251,10 @@ test('besluit 443: bezoeker krijgt bij een API-fout geen foutdetails', async () 
   assert.equal(r.doorverwezen, true);
   assert.equal(r.apiFout.status, 400, 'intern beschikbaar voor de proef');
 });
+
+test('besluit 443: geen temperature in de aanroep (Haiku 5.5 weigert die met een 400)', async () => {
+  const { vb, api } = opzet();
+  const t = gesprek(vb);
+  await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoi' });
+  assert.equal('temperature' in api.aanroepen[0].body, false);
+});

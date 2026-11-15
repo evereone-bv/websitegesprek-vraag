@@ -15,7 +15,6 @@ export async function vraagClaude({ config, kbTekst, beurten, model, fetchFn = f
   const body = {
     model,
     max_tokens: config.maxUitvoerTokens,
-    temperature: 0,
     inference_geo: config.inferenceGeo,
     system: [
       { type: 'text', text: INSTRUCTIE, cache_control: { type: 'ephemeral' } },
