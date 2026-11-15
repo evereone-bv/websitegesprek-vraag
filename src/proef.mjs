@@ -15,6 +15,7 @@ export async function beoordeel(item, u, beoordelaar = null) {
   const v = item.verwacht || {};
   const a = String(u.antwoord || '');
   const fouten = [];
+  const waarschuwingen = []; // besluit 462: telt niet mee voor geslaagd, wel zichtbaar op /proef
   for (const w of v.nooit || []) if (a.includes(w)) fouten.push(`bevat letterlijk '${w}'`);
   const echtAntwoord = !(u.doorverwezen || u.buiten);
   if (v.buiten) {
@@ -34,14 +35,16 @@ export async function beoordeel(item, u, beoordelaar = null) {
         if (!oordeel.juist) fouten.push('beoordelaar: niet juist');
         if (!oordeel.gegrond) fouten.push('beoordelaar: niet gegrond');
         if (oordeel.toezegging) fouten.push('beoordelaar: toezegging');
-        if (oordeel.helder === false) fouten.push('beoordelaar: niet helder (taal, herhaling of tegenspraak)');
+        // Besluit 462 (Raymond 15 nov 08:59, keuze A): 'niet helder' is een waarschuwing, geen fout. Juist, gegrond,
+        // toezegging, beantwoordt en de valkuilen blijven even streng.
+        if (oordeel.helder === false) waarschuwingen.push('beoordelaar: niet helder (taal, herhaling of tegenspraak)');
         if (['feit', 'en'].includes(item.soort) && !oordeel.beantwoordt) fouten.push('beoordelaar: beantwoordt de vraag niet');
       }
     } else if ((v.bevat_een_van || []).length && !v.bevat_een_van.some((w) => normaliseer(a).includes(normaliseer(w)))) {
       fouten.push('mist kerninformatie');
     }
   }
-  return { goed: fouten.length === 0, fouten, oordeel };
+  return { goed: fouten.length === 0, fouten, waarschuwingen, oordeel };
 }
 
 export function tekstApiFout(a) {
@@ -67,7 +70,7 @@ export async function draaiTestset(vraagFn, { items, herhaalValkuilen = 3, filte
         if (u?.apiFout) return { totaal: 0, goed: 0, lat: 0, valkuilFout: 0, geslaagd: false, apiFout: u.apiFout, bijVraag: item.id, uitslag };
       }
       const b = await beoordeel(item, u, beoordelaar);
-      details.push({ antwoord: u.antwoord, bron: u.bron, fouten: b.fouten, ...(b.oordeel ? { oordeel: b.oordeel } : {}), ...(u.diag ? { diag: u.diag } : {}) });
+      details.push({ antwoord: u.antwoord, bron: u.bron, fouten: b.fouten, ...(b.waarschuwingen?.length ? { waarschuwingen: b.waarschuwingen } : {}), ...(b.oordeel ? { oordeel: b.oordeel } : {}), ...(u.diag ? { diag: u.diag } : {}) });
       if (!b.goed) allesGoed = false;
     }
     uitslag.push({ id: item.id, soort: item.soort, goed: allesGoed, details });

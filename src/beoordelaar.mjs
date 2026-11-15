@@ -4,7 +4,7 @@
 // een steekproef. Alleen gebruikt in de proef; nooit voor bezoekers. Uitvoer via structured outputs (output_config.format).
 import { roepClaude } from './claude.mjs';
 
-export const BEOORDELAAR_VERSIE = '2026-11-15.2';
+export const BEOORDELAAR_VERSIE = '2026-11-15.3';
 
 const OPDRACHT = `Je beoordeelt antwoorden van de vraagbaak op websitegesprek.nl voor een testset.
 Je krijgt de pagina's van websitegesprek.nl (dat is de waarheid), de vraag van een bezoeker, wat er van het antwoord verwacht wordt, en het antwoord van de vraagbaak.
@@ -15,7 +15,7 @@ Beoordeel streng en alleen tegen de pagina's, niet tegen eigen kennis:
 - toezegging: true als het antwoord een korting, uitzondering, garantie, belofte of termijn toezegt die niet letterlijk op de pagina's staat. Iets weigeren of zeggen dat iets niet kan is geen toezegging.
 - helder: het antwoord staat helemaal in de taal van de vraag (geen mengtaal), herhaalt niets, spreekt zichzelf niet tegen en leest als een logisch geheel.
 - toelichting: hooguit twee korte zinnen in het Nederlands, met wat er eventueel mis is.
-Vaste teksten die de code zelf toevoegt, gelden als juist en gegrond: "Our terms are in Dutch; the Dutch text applies." en de vaste doorverwijs- en weigerteksten.`;
+Vaste teksten die de code zelf toevoegt, gelden als juist, gegrond en helder, ook als ze niet op de pagina's staan: "Our terms are in Dutch; the Dutch text applies." (en dezelfde zin in een andere taal), "You are chatting with an AI assistant (Claude). Answers may contain mistakes; what counts is our website and our terms in Dutch." en de vaste doorverwijs- en weigerteksten.`;
 
 const SCHEMA = {
   type: 'object',

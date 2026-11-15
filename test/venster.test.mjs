@@ -254,3 +254,11 @@ test('besluit 458 B: antwoord woord voor woord na de controle, met bewegende pun
   const body = js.slice(js.indexOf('function typ('), js.indexOf('function stuur('));
   assert.ok(!body.includes('&&') || true);
 });
+
+test('AI-melding (V1): eerste zin altijd zichtbaar, rest klapt in na de eerste vraag (wens Raymond 15 nov)', () => {
+  const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
+  assert.match(js, /\.m\.dicht \.mrest\{display:none\}/);
+  assert.ok(!/\.m\.dicht \.mkort\{display:none\}/.test(js), 'de eerste zin (je praat met een AI) verdwijnt nooit');
+  assert.match(js, /bezig = true; knop\.disabled = true;\n\s*klapMelding\(false\);/);
+  assert.match(js, /'aria-expanded': 'true'/);
+});
