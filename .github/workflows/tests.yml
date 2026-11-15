@@ -1,0 +1,22 @@
+# Besluit 480 (Raymond 15 nov 21:55): npm test bij elke pull request en elke push naar main, inclusief de test die
+# antwoordnummers (V-XXXXXX) weigert in bestanden, commits en de pull request. Openbare repository: GitHub-minuten gratis.
+name: npm test
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --version
+      - run: npm test
