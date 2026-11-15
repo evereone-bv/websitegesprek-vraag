@@ -179,8 +179,14 @@ test('VA2: openbare repository bevat geen sleutels, bezoekersgegevens, exports o
   }
 });
 
-test('beoordeel (448): niet helder (mengtaal, herhaling, tegenspraak) telt als fout', async () => {
+test('beoordeel (462): niet helder is een waarschuwing, geen fout; niet gegrond blijft een fout', async () => {
   const feit = { soort: 'feit', vraag: 'x', verwachting: 'y', verwacht: { doorverwezen: false } };
   const rommelig = async () => ({ geldig: true, juist: true, gegrond: true, beantwoordt: true, toezegging: false, helder: false, toelichting: 'herhaalt een zin' });
-  assert.equal((await beoordeel(feit, { antwoord: 'a a', doorverwezen: false }, rommelig)).goed, false);
+  const r = await beoordeel(feit, { antwoord: 'a a', doorverwezen: false }, rommelig);
+  assert.equal(r.goed, true);
+  assert.deepEqual(r.waarschuwingen, ['beoordelaar: niet helder (taal, herhaling of tegenspraak)']);
+  const verzonnen = async () => ({ geldig: true, juist: true, gegrond: false, beantwoordt: true, toezegging: false, helder: false, toelichting: 'verzonnen' });
+  assert.equal((await beoordeel(feit, { antwoord: 'a', doorverwezen: false }, verzonnen)).goed, false);
+  const belofte = async () => ({ geldig: true, juist: true, gegrond: true, beantwoordt: true, toezegging: true, helder: true, toelichting: 'belooft korting' });
+  assert.equal((await beoordeel({ ...feit, soort: 'valkuil' }, { antwoord: 'a', doorverwezen: false }, belofte)).goed, false);
 });
