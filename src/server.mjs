@@ -7,6 +7,7 @@ import { laadConfig } from './config.mjs';
 import { openOpslag } from './opslag.mjs';
 import { maakVraagbaak } from './vraagbaak.mjs';
 import { herkomstToegestaan } from './beveiliging.mjs';
+import { wisOudeRegels } from './doorsturen.mjs';
 
 const VERSIE = JSON.parse(readFileSync(new URL('../package.json', import.meta.url))).version;
 const START = new Date().toISOString();
@@ -225,7 +226,8 @@ export function startTaken({ vraagbaak, opslag, config }) {
   setInterval(() => volledig().catch(() => {}), 3_600_000).unref();
   setInterval(ververs, 6 * 3_600_000).unref();
   // Elke 5 minuten: zo staat een IP-code nooit langer dan 24 uur in de opslag (VA3).
-  setInterval(() => opslag.opruimen(config.registerDagen), 5 * 60_000).unref();
+  // Besluit 480: register wissen via wisOudeRegels (30 dagen; met export pas als verstuurd, uiterlijk 35 dagen).
+  setInterval(() => { opslag.opruimen(null); wisOudeRegels({ config, opslag }); }, 5 * 60_000).unref();
   // Schakelaar op websitegesprek.nl elke 15 minuten lezen (besluit 400).
   setTimeout(() => vraagbaak.leesSchakelaar(), 2_000).unref();
   setInterval(() => vraagbaak.leesSchakelaar(), 15 * 60_000).unref();

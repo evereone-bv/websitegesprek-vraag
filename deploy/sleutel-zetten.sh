@@ -8,6 +8,27 @@ ENVF=/etc/vraag/vraag.env
 if [ "$(id -u)" != "0" ]; then echo "Draai dit als root."; exit 1; fi
 if [ ! -t 0 ]; then echo "Gebruik ssh -t, zodat je de sleutel onzichtbaar kunt plakken."; exit 1; fi
 
+# Besluit 480: gedeelde sleutel voor de export naar rapportage (32 willekeurige bytes, review S5).
+#   ssh -t root@vraag.websitegesprek.nl vraag-sleutel-zetten rapportage
+# Toont de nieuwe sleutel één keer op jouw scherm (nooit in een chat plakken). Zet hem zelf in wp-config.php van
+# rapportage als WG_VRAAG_SLEUTEL; bij vervangen eerst de oude als WG_VRAAG_SLEUTEL_OUD laten staan (zie DRAAIBOEK F2).
+if [ "${1:-}" = "rapportage" ]; then
+  umask 077
+  NIEUW="$(openssl rand -hex 32)"
+  TMP="$(mktemp /etc/vraag/.vraag.env.XXXXXX)"
+  grep -v -e '^VRAAG_RAPPORTAGE_SLEUTEL=' -e '^VRAAG_RAPPORTAGE_URL=' "$ENVF" 2>/dev/null > "$TMP" || true
+  printf 'VRAAG_RAPPORTAGE_URL=%s\n' 'https://rapportage.websitegesprek.nl/wp-json/wg/v1/vraagbaak-register' >> "$TMP"
+  printf 'VRAAG_RAPPORTAGE_SLEUTEL=%s\n' "$NIEUW" >> "$TMP"
+  chmod 0600 "$TMP"
+  mv "$TMP" "$ENVF"
+  echo "Nieuwe sleutel (alleen hier zichtbaar, zet hem in wp-config.php als WG_VRAAG_SLEUTEL):"
+  echo "$NIEUW"
+  unset NIEUW
+  systemctl restart vraag.service
+  echo "Opgeslagen. De export blijft uit tot VRAAG_EXPORT=aan (pas na de proefrun en het akkoord van Juridisch)."
+  exit 0
+fi
+
 printf 'Plak de API-sleutel (je ziet niets verschijnen) en druk op Enter: '
 IFS= read -rs KEY
 echo

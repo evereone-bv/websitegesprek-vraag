@@ -54,9 +54,11 @@ export function laadConfig(env = process.env) {
     apiTimeoutMs: getal('VRAAG_API_TIMEOUT_MS', 24000), // 467: Sonnet plus één herstelpoging moet erin passen
     // Bewaren (VB5)
     registerDagen: 30,
-    // Rapportage (hartslag/alarm/export), komt in een volgende versie
+    // Besluit 480: nachtelijke export naar rapportage. Alleen met adres, sleutel van 32 bytes én VRAAG_EXPORT=aan
+    // (RV1: pas aan na de proefrun langs SiteGround en schriftelijk akkoord van Juridisch).
     rapportageUrl: env.VRAAG_RAPPORTAGE_URL || '',
     rapportageSleutel: env.VRAAG_RAPPORTAGE_SLEUTEL || '',
+    exportAan: env.VRAAG_EXPORT === 'aan',
     cacheTtl: env.VRAAG_CACHE_TTL === '5m' ? '5m' : '1h', // besluit 461
     beheerSleutel: env.VRAAG_BEHEER_SLEUTEL || '', // voor /beheer/* (export, aan/uit); alleen lokaal op de server
   };

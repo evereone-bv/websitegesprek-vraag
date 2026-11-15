@@ -239,7 +239,8 @@ test('VA3: tellers met een IP-code verlopen binnen 24 uur en de opslag wist ze e
   for (const r of rijen) assert.ok(r.verloopt - Date.now() < 24 * 3_600_000 - 5 * 60_000, r.sleutel);
   assert.equal(opslag.db.prepare('PRAGMA secure_delete').get().secure_delete, 1);
   const server = readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8');
-  assert.match(server, /setInterval\(\(\) => opslag\.opruimen\(config\.registerDagen\), 5 \* 60_000\)/);
+  // Besluit 480: opruimen elke 5 minuten; het register via wisOudeRegels (30 dagen, met export uiterlijk 35).
+  assert.match(server, /setInterval\(\(\) => \{ opslag\.opruimen\(null\); wisOudeRegels\(\{ config, opslag \}\); \}, 5 \* 60_000\)/);
   const register = opslag.db.prepare('SELECT * FROM register').all();
   for (const r of register) assert.ok(!JSON.stringify(r).includes('10.0.0.1'));
 });

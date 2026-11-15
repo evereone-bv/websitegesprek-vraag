@@ -95,6 +95,26 @@ Persistent=true
 WantedBy=timers.target
 UNIT
 
+echo "== Nachtelijke export naar rapportage (03:17, besluit 480; doet niets zonder VRAAG_EXPORT=aan in /etc/vraag/vraag.env)"
+cat > /etc/systemd/system/vraag-export.service <<'UNIT'
+[Unit]
+Description=Vraagbaak register naar rapportage (besluit 480)
+After=vraag.service
+Requires=vraag.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec vraag node --disable-warning=ExperimentalWarning src/beheer.mjs stuur-register
+UNIT
+cat > /etc/systemd/system/vraag-export.timer <<'UNIT'
+[Unit]
+Description=Vraagbaak register elke nacht naar rapportage (besluit 480)
+[Timer]
+OnCalendar=*-*-* 03:17:00
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+
 echo "== Caddy (https)"
 install -m 0644 deploy/Caddyfile /etc/caddy/Caddyfile
 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
@@ -105,6 +125,9 @@ systemctl restart vraag-firewall.service
 systemctl enable vraag.service vraag-update.timer
 systemctl restart vraag.service
 systemctl start vraag-update.timer
+# Besluit 480 (review V7): de export-timer rolt mee met de nachtelijke update; uitzetten = deze regel vervangen door
+# 'systemctl disable --now vraag-export.timer' (ook via de nachtelijke update, zonder SSH).
+systemctl enable --now vraag-export.timer
 systemctl enable caddy
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
 

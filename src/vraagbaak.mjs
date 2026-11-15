@@ -5,6 +5,7 @@ import { vraagClaude, ApiFout } from './claude.mjs';
 import { kostenDollar, DOLLAR_NAAR_EURO } from './config.mjs';
 import { kennisbankAlsTekst, bouwKennisbank } from './kennisbank.mjs';
 import { INSTRUCTIE_VERSIE } from './instructie.mjs';
+import { exportStatus } from './doorsturen.mjs';
 import { geheim as haalGeheim, ipHash, maakPuzzel, controleerPuzzel, nieuwToken, antwoordId } from './beveiliging.mjs';
 
 export const MELDING_EN_TEKST = 'You are chatting with an AI assistant (Claude). Answers may contain mistakes; what counts is our website and our terms in Dutch.';
@@ -330,6 +331,8 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
         return { duur_ms_mediaan_24u: at(0.5), duur_ms_p90_24u: at(0.9) };
       })(),
       proef_laatste: opslag.staat('proef:laatste', null),
+      // Besluit 480 (C3, C7): stand van de export, alleen getallen en vaste labels.
+      export: exportStatus({ config, opslag, nu: t }),
     };
   }
 
