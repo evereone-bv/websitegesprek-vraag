@@ -82,14 +82,33 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
   }
 
   // Kostenpiek: dit uur meer dan 3x het gemiddelde van de vorige 24 uur (en minstens €0,50).
+  // Besluit 468: zuinige stand = vanaf 70% van het uur- of dagbudget, of bij een kostenpiek dit uur. Dan het goedkopere model,
+  // maar alleen als dat model de testset ook gehaald heeft (een goedgekeurd model, nooit een ongetest model).
+  function zuinig() {
+    const t = klok();
+    const uur = euro(opslag.stand(`kosten:uur:${uurVak(t)}`));
+    const dag = euro(opslag.stand(`kosten:dag:${dagVak(t)}`));
+    const reden = uur >= config.zuinigVanaf * config.plafondUurEuro ? 'uurbudget' : dag >= config.zuinigVanaf * config.plafondDagEuro ? 'dagbudget' : opslag.staat(`zuinig:piek:${uurVak(t)}`, null) ? 'kostenpiek' : '';
+    return { aan: !!reden, reden, uur_euro: Math.round(uur * 100) / 100, dag_euro: Math.round(dag * 100) / 100 };
+  }
+  function zuinigModel(keuze) {
+    const v = keuze?.varianten || {};
+    const goedgekeurd = Object.values(v).filter((x) => x && x.geslaagd && x.model === config.terugvalModel);
+    if (!config.terugvalModel || !goedgekeurd.length) return null;
+    goedgekeurd.sort((a, b) => b.goed - a.goed);
+    return { model: config.terugvalModel, denken: goedgekeurd[0].denken };
+  }
   function controleerPiek() {
     const t = klok();
     const nu = euro(opslag.stand(`kosten:hist:${uurVak(t)}`));
     let som = 0;
     for (let i = 1; i <= 24; i++) som += euro(opslag.stand(`kosten:hist:${uurVak(t) - i}`));
     const gem = som / 24;
-    // Besluit 467: drempel meegeschaald met Sonnet (ca. € 0,0125 per aanroep); de proef zet hem uit (piekDrempelEuro 1e6).
-    if (nu >= config.piekDrempelEuro && nu > 3 * gem) zetUit('kostenpiek');
+    // Besluit 468: een kostenpiek zet de vraagbaak niet meer uit, maar zet hem dit uur in de zuinige stand (met alarm).
+    if (nu >= config.piekDrempelEuro && nu > 3 * gem && !opslag.staat(`zuinig:piek:${uurVak(t)}`, null)) {
+      opslag.zetStaat(`zuinig:piek:${uurVak(t)}`, { sinds: new Date(t).toISOString() });
+      opslag.log('alarm', `kostenpiek: € ${nu.toFixed(2)} dit uur (gemiddeld € ${gem.toFixed(2)}); zuinige stand`);
+    }
   }
 
   // >20% API-fouten in 15 minuten (bij minstens 10 aanroepen).
@@ -167,9 +186,13 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
 
     // Besluit 447/467: model en nadenken volgens de variant die de testset koos; de proef zet ze vast.
     const keuze = opslag.staat('proef:volledig', null);
-    const model = config.modelVast || keuze?.gekozenModel || config.model;
+    let model = config.modelVast || keuze?.gekozenModel || config.model;
+    let denken = config.denkenVast || keuze?.gekozen || config.denken;
+    // Besluit 468: in de zuinige stand het goedgekeurde goedkopere model (alleen als het verschilt en de testset haalde).
+    const zs = config.modelVast ? { aan: false } : zuinig();
+    const zm = zs.aan ? zuinigModel(keuze) : null;
+    if (zm && zm.model !== model) { model = zm.model; denken = zm.denken; }
     let uitkomst; let kostenMilliCent = 0; let gebruiktModel = model;
-    const denken = config.denkenVast || keuze?.gekozen || config.denken;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), config.apiTimeoutMs);
     try {
@@ -297,6 +320,8 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
       register_gewist_bij_live: opslag.staat('register:gewist_bij_live', null)?.tijd ? new Date(opslag.staat('register:gewist_bij_live', null).tijd).toISOString() : null,
       kennisbank: kb ? kb.versie : null,
       kosten_vandaag_euro: Math.round(euro(opslag.stand(`kosten:dag:${dagVak(t)}`)) * 100) / 100,
+      // Besluit 468: budget en zuinige stand, alleen getallen.
+      budget: (() => { const z = zuinig(); return { uur_euro: z.uur_euro, dag_euro: z.dag_euro, plafond_uur_euro: config.plafondUurEuro, plafond_dag_euro: config.plafondDagEuro, zuinig: z.aan, zuinig_reden: z.reden, zuinig_model: z.aan ? (zuinigModel(opslag.staat('proef:volledig', null))?.model || null) : null }; })(),
       vragen_dit_uur: opslag.stand(`server:uur:${uurVak(t)}`),
       // Besluit 461: snelheid van echte antwoorden (zonder proef), alleen getallen.
       ...(() => {

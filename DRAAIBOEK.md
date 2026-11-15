@@ -72,3 +72,11 @@ Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
 3. De beoordelaar van de testset is Opus 5.5 (sterker dan het model dat hij nakijkt).
 4. Een volledige testset met drie varianten duurt ongeveer een half uur tot drie kwartier; tot hij klaar is, staat de vraagbaak uit als het de eerste keer is na een wijziging.
 5. Faalt een controle die het model kan verbeteren (geen bron, een getal of woord dat niet op de site staat, te lang), dan vraagt de server het één keer opnieuw met precies wat er mis was; pas daarna volgt de doorverwijzing.
+
+## F. Kosten en budget (besluit 468)
+
+1. Per bezoeker: 30 vragen per uur, 100 per dag, 20 per gesprek; vragen hooguit 500 tekens (OWASP LLM10: rate limiting en invoergrenzen).
+2. Zuinige stand: vanaf 70% van het uurbudget (€ 10) of dagbudget (€ 30), of bij een kostenpiek (vanaf € 3 in een uur en 3x het gemiddelde), gebruikt de vraagbaak het goedkopere model, maar alleen als dat de testset ook haalde. Zichtbaar op /healthz onder `budget`.
+3. Harde grens: bij € 10 in een uur of € 30 op een dag tijdelijk "even niet beschikbaar" met WhatsApp en mail (een mens als terugval).
+4. Laatste vangnet bij Anthropic (eenmalig, door Raymond): Console › Settings › Workspaces › werkruimte van de vraagbaak › Spend limits: maandgrens en een melding ruim daaronder.
+5. Een kostenpiek zet de vraagbaak niet meer uit; uit gaat hij alleen bij een ongeldige sleutel, op tegoed, veel API-fouten of een rode dagelijkse proef.

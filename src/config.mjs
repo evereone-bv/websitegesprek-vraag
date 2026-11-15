@@ -42,10 +42,13 @@ export function laadConfig(env = process.env) {
     perIpUur: getal('VRAAG_PER_IP_UUR', 30),
     perIpDag: getal('VRAAG_PER_IP_DAG', 100),
     tokensPerIpUur: getal('VRAAG_TOKENS_PER_IP_UUR', 10),
-    plafondUurEuro: getal('VRAAG_PLAFOND_UUR', 2),
-    // Kostenpiek (zet de vraagbaak blijvend uit tot akkoord): pas vanaf € 1,50 in een uur (was € 0,50, te laag voor Sonnet).
-    piekDrempelEuro: getal('VRAAG_PIEK_DREMPEL', 1.5),
-    plafondDagEuro: getal('VRAAG_PLAFOND_DAG', 8),
+    // Besluit 468 (kostenbeheer volgens OWASP LLM10 en gangbare praktijk): per bezoeker limieten (hieronder), een zuinige stand
+    // vanaf 70% van het uur- of dagbudget of bij een kostenpiek (goedkoper, goedgekeurd model in plaats van uitzetten), een
+    // harde grens als vangnet met een vriendelijke doorverwijzing, en de maandgrens bij Anthropic (Console) als laatste vangnet.
+    plafondUurEuro: getal('VRAAG_PLAFOND_UUR', 10),
+    plafondDagEuro: getal('VRAAG_PLAFOND_DAG', 30),
+    zuinigVanaf: getal('VRAAG_ZUINIG_VANAF', 0.7),
+    piekDrempelEuro: getal('VRAAG_PIEK_DREMPEL', 3),
     serverVragenPerUur: getal('VRAAG_SERVER_PER_UUR', 600),
     puzzelBits: getal('VRAAG_PUZZEL_BITS', 18), // ca. 1 s op een telefoon
     apiTimeoutMs: getal('VRAAG_API_TIMEOUT_MS', 24000), // 467: Sonnet plus één herstelpoging moet erin passen

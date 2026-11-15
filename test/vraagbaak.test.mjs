@@ -480,9 +480,9 @@ test('467-reparatie: proef heeft geen kostenplafond, telt verbruik en stopt zich
   assert.ok(u.kosten.euro_per_vraag > 0);
 });
 
-test('467-reparatie: kostenpiek pas vanaf € 1,50 per uur; de proef heeft geen piekgrens', async () => {
+test('468: kostenpiek vanaf € 3 per uur zet de zuinige stand aan, nooit uit; de proef heeft geen piekgrens', async () => {
   const { config } = opzet();
-  assert.equal(config.piekDrempelEuro, 1.5);
+  assert.equal(config.piekDrempelEuro, 3);
   const src = readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8');
   assert.match(src, /piekDrempelEuro: 1e6/);
   // Proef met dure antwoorden: ruim boven € 0,50 en toch alle vragen gedraaid.
@@ -491,4 +491,31 @@ test('467-reparatie: kostenpiek pas vanaf € 1,50 per uur; de proef heeft geen 
   const u = await maakProef({ config: c, fetchFn: api, aantal: 5 })(kb);
   assert.equal(u.totaal, 5);
   assert.ok(u.kosten.euro > 0.5, String(u.kosten.euro));
+});
+
+test('468: plafonds € 10 per uur en € 30 per dag; vanaf 70% zuinige stand met het goedgekeurde goedkopere model', async () => {
+  const api = nepApi();
+  const { vb, opslag, config } = opzet({ VRAAG_PLAFOND_UUR: '1', VRAAG_PLAFOND_DAG: '100' }, api);
+  const standaard = laadConfig({});
+  assert.equal(standaard.plafondUurEuro, 10);
+  assert.equal(standaard.plafondDagEuro, 30);
+  const { INSTRUCTIE_VERSIE } = await import('../src/instructie.mjs');
+  const varianten = { 'claude-sonnet-5-5|low': { model: 'claude-sonnet-5-5', denken: 'low', geslaagd: true, goed: 55 }, 'claude-haiku-5-5|low': { model: 'claude-haiku-5-5', denken: 'low', geslaagd: true, goed: 52 } };
+  opslag.zetStaat('proef:volledig', { geslaagd: true, gekozenModel: 'claude-sonnet-5-5', gekozen: 'low', instructie: INSTRUCTIE_VERSIE, varianten });
+  const t = gesprek(vb);
+  await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Kan ik het eerst proberen?', pagina: 'https://websitegesprek.nl/' });
+  assert.equal(api.aanroepen.at(-1).body.model, 'claude-sonnet-5-5', 'onder 70%: Sonnet');
+  // Kosten van dit uur op 75% van het uurplafond zetten.
+  const uurVak = Math.floor(Date.now() / 3_600_000);
+  opslag.tel(`kosten:uur:${uurVak}`, Math.round(0.75 * 100_000), 3_600_000);
+  await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'En hoe zeg ik op?', pagina: 'https://websitegesprek.nl/' });
+  assert.equal(api.aanroepen.at(-1).body.model, 'claude-haiku-5-5', 'vanaf 70%: Haiku (goedgekeurd)');
+  assert.equal(vb.gezondheid().budget.zuinig, true);
+  assert.equal(vb.status().aan, true, 'zuinig is niet uit');
+  // Haiku niet goedgekeurd: dan blijft Sonnet, tot het harde plafond.
+  varianten['claude-haiku-5-5|low'].geslaagd = false;
+  opslag.zetStaat('proef:volledig', { geslaagd: true, gekozenModel: 'claude-sonnet-5-5', gekozen: 'low', instructie: INSTRUCTIE_VERSIE, varianten });
+  await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Wat kost het?', pagina: 'https://websitegesprek.nl/' });
+  assert.equal(api.aanroepen.at(-1).body.model, 'claude-sonnet-5-5');
+  assert.ok(config.zuinigVanaf === 0.7);
 });
