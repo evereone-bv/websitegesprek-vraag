@@ -79,7 +79,7 @@ export function maakServer({ env = process.env, config = laadConfig(env), opslag
       }
       const status = r.status || 200;
       delete r.status;
-      delete r.apiFout; // foutdetails alleen voor de proef, nooit naar de bezoeker (besluit 443)
+      delete r.apiFout; delete r.diag; // foutdetails alleen voor de proef, nooit naar de bezoeker (besluit 443)
       return stuur(status, r, cors);
     }
     return stuur(404, { ok: false, fout: 'niet gevonden' });
@@ -140,7 +140,7 @@ export function startTaken({ vraagbaak, opslag, config }) {
     const u = await maakProef({ config, volledig: true, herhaal: 3 })(vraagbaak.kb).catch((e) => ({ ok: false, fout: e.message, uitslag: [] }));
     opslag.zetStaat('proef:volledig', {
       sleutel, tijd: new Date().toISOString(), model: config.model, instructie: INSTRUCTIE_VERSIE, geslaagd: !!u.ok, fout: u.fout || '', ...(u.apiFout ? { apiFout: u.apiFout, bij_vraag: u.bijVraag } : {}), goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout,
-      fouten: (u.uitslag || []).filter((x) => !x.goed).map((x) => ({ id: x.id, soort: x.soort, fouten: x.details.map((d) => d.fouten.join('; ')), antwoord: x.details[0]?.antwoord })),
+      fouten: (u.uitslag || []).filter((x) => !x.goed).map((x) => ({ id: x.id, soort: x.soort, fouten: x.details.map((d) => d.fouten.join('; ')), antwoord: x.details[0]?.antwoord, diag: x.details.find((d) => d.diag)?.diag })),
     });
     opslag.log('proef', `volledige testset ${config.model}: ${u.goed}/${u.totaal}, valkuilen fout ${u.valkuilFout}`);
   };

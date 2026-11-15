@@ -45,5 +45,5 @@ export async function vraagClaude({ config, kbTekst, beurten, model, fetchFn = f
     throw new ApiFout('overig', res.status, type, uitleg);
   }
   const tekst = (data?.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
-  return { tekst, usage: data?.usage || {}, model: data?.model || model };
+  return { tekst, usage: data?.usage || {}, model: data?.model || model, stop: data?.stop_reason || '' };
 }
