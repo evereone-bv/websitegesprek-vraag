@@ -9,8 +9,18 @@
 
   var API = 'https://vraag.websitegesprek.nl';
   var OPSLAG = 'wg-vraag-gesprek';
-  var WA = 'https://wa.me/31611729912?text=' + encodeURIComponent('Hoi! Ik heb een vraag over Websitegesprek: ');
+  var WA_NR = 'https://wa.me/31611729912?text=';
+  var WA = WA_NR + encodeURIComponent('Hoi! Ik heb een vraag over Websitegesprek: ');
   var MAIL = 'mailto:info@websitegesprek.nl';
+  // Besluit 479: het antwoordnummer staat niet in beeld, maar gaat mee in het WhatsApp- en mailbericht
+  // na een antwoord, zodat wij het antwoord terugvinden (VB5) zonder dat de bezoeker er iets mee hoeft.
+  var waLink = null, mailLink = null;
+  function zetContact(id) {
+    if (!waLink || !mailLink || !/^[A-Z]-[A-Z0-9]{1,12}$/.test(id || '')) return;
+    var zin = 'Hoi, ik heb een vraag over Websitegesprek (antwoord ' + id + '): ';
+    waLink.setAttribute('href', WA_NR + encodeURIComponent(zin));
+    mailLink.setAttribute('href', MAIL + '?subject=' + encodeURIComponent('Vraag over Websitegesprek (antwoord ' + id + ')') + '&body=' + encodeURIComponent(zin));
+  }
   var PRIVACY = 'https://websitegesprek.nl/privacy/'; // VA1 (Juridisch 14 nov)
   var VOORLEZEN = false; // Besluit 456 (Raymond 15 nov): voorlezen werkte niet op de iPhone, dus geen speakerknop.
   var MIC_MAX_MS = 30000; // S1: microfoon hooguit 30 seconden
@@ -119,11 +129,10 @@
     '#wg-vraag-venster .b{max-width:88%;padding:12px 16px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}' +
     '#wg-vraag-venster .b.u{align-self:flex-end;background:#0E1B2C;color:#F6F4EE;border-bottom-right-radius:4px}' +
     '#wg-vraag-venster .b.a{align-self:flex-start;background:#F6F4EE;color:#1B2633;border-bottom-left-radius:4px}' +
-    '#wg-vraag-venster .b.typt a,#wg-vraag-venster .b.typt .id,#wg-vraag-venster .b.typt .d{visibility:hidden}' +
+    '#wg-vraag-venster .b.typt a,#wg-vraag-venster .b.typt .d{visibility:hidden}' +
     '#wg-vraag-venster .pt{display:inline-block;width:6px;height:6px;margin-left:4px;border-radius:50%;background:#5B6775;vertical-align:middle}' +
     '@media (prefers-reduced-motion:no-preference){#wg-vraag-venster .pt{animation:wgVraagPunt 1s ease-in-out infinite}#wg-vraag-venster .pt:nth-child(2){animation-delay:.15s}#wg-vraag-venster .pt:nth-child(3){animation-delay:.3s}@keyframes wgVraagPunt{0%,80%,100%{opacity:.25}40%{opacity:1}}}' +
     '#wg-vraag-venster .b a{color:#0E1B2C;font-weight:600;text-decoration:underline;text-underline-offset:2px}' +
-    '#wg-vraag-venster .id{display:block;margin-top:8px;font-size:12px;line-height:1.4;color:#5B6775}' +
     '#wg-vraag-venster .d{display:flex;gap:8px;margin-top:8px}' +
     '#wg-vraag-venster .d button{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:#fff;border:1px solid #E3DED2;color:#0E1B2C}' +
     '#wg-vraag-venster .d button svg{width:20px;height:20px;display:block}' +
@@ -293,7 +302,7 @@
     }
     if (id) {
       b.setAttribute('data-id', id);
-      b.appendChild(maak('span', { class: 'id' }, id));
+      zetContact(id);
       var d = maak('div', { class: 'd', role: 'group', 'aria-label': T.nuttig });
       var ja = icoonKnop(DUIM_OP, T.ja);
       var nee = icoonKnop(DUIM_NEER, T.nee);
@@ -444,9 +453,11 @@
     // Onderregel (wens Raymond 13 nov): geen knoppenrij meer, wel altijd de weg naar een mens.
     var t = maak('p', { class: 't' });
     t.appendChild(document.createTextNode(T.mens + ' '));
-    t.appendChild(maak('a', { href: WA, target: '_blank', rel: 'noopener' }, T.wa));
+    waLink = maak('a', { href: WA, target: '_blank', rel: 'noopener' }, T.wa);
+    t.appendChild(waLink);
     t.appendChild(document.createTextNode(' ' + T.of + ' '));
-    t.appendChild(maak('a', { href: MAIL }, T.mail));
+    mailLink = maak('a', { href: MAIL }, T.mail);
+    t.appendChild(mailLink);
     t.appendChild(document.createTextNode(' · '));
     t.appendChild(maak('a', { href: PRIVACY, target: '_self' }, T.privacy)); // VA1
     // Open zwevende WhatsApp-kaart sluiten zodra het venster opent (één ding tegelijk in beeld).

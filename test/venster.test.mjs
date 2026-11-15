@@ -278,3 +278,23 @@ test('tekstvak groeit mee tot 5 regels en wordt na versturen weer klein (Raymond
   assert.match(js, /invoer\.value = ''; pasHoogteAan\(\); stuur\(v\);/);
   assert.match(js, /textarea\{[^}]*max-height:146px;overflow-y:auto/);
 });
+
+test('besluit 479: antwoordnummer niet in beeld, wel mee in het WhatsApp- en mailbericht na een antwoord', async () => {
+  const t = laadMetSpraak();
+  await wacht();
+  const wa = vind(t.dom, (e) => e.tag === 'a' && /^https:\/\/wa\.me\//.test(e.attrs.href || ''));
+  const mail = vind(t.dom, (e) => e.tag === 'a' && /^mailto:/.test(e.attrs.href || ''));
+  assert.ok(wa && mail);
+  assert.ok(!/antwoord/.test(decodeURIComponent(wa.attrs.href)), 'voor een antwoord: gewone begroeting');
+  const veld = vind(t.dom, (e) => e.tag === 'textarea');
+  const form = vind(t.dom, (e) => e.tag === 'form');
+  veld.value = 'Wat kost het?';
+  form.onsubmit({ preventDefault() {} });
+  await wacht();
+  assert.ok(!t.dom.alle.some((e) => e.className === 'id'), 'geen zichtbaar nummer onder het antwoord');
+  assert.ok(!t.dom.alle.some((e) => e.tag === 'span' && /A-1/.test(e._tekst)), 'nummer staat niet als tekst in beeld');
+  assert.equal(decodeURIComponent(wa.attrs.href.split('?text=')[1]), 'Hoi, ik heb een vraag over Websitegesprek (antwoord A-1): ');
+  assert.match(decodeURIComponent(mail.attrs.href), /^mailto:info@websitegesprek\.nl\?subject=Vraag over Websitegesprek \(antwoord A-1\)&body=Hoi, ik heb/);
+  const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
+  assert.ok(!/\.id\{display:block/.test(js));
+});
