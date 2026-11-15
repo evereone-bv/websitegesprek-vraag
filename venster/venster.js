@@ -13,12 +13,14 @@
   var MAIL = 'mailto:info@websitegesprek.nl';
   var PRIVACY = 'https://websitegesprek.nl/privacy/'; // VA1 (Juridisch 14 nov)
   var MIC_MAX_MS = 30000; // S1: microfoon hooguit 30 seconden
-  var NL = /^nl\b/i.test(navigator.language || 'nl'); // VB7: Engelse melding als de browsertaal geen Nederlands is
+  // Besluit 455 (wens Raymond 15 nov): het venster is altijd Nederlands, ook in een Engelstalige browser.
+  // Antwoorden volgen nog wel de taal van de vraag (instructie). VB7 (Engelse melding) ligt ter toets bij Juridisch.
+  var NL = true;
   var T = NL ? {
     titel: 'Stel je vraag', plaats: 'Typ je vraag…', stuur: 'Stuur', sluit: 'Sluiten', bezig: 'Even denken…', nogEven: 'Nog even…',
     mislukt: 'Dat lukt nu even niet. Vraag het via WhatsApp of mail, dan krijg je persoonlijk antwoord.',
     uit: 'De vraagbaak is even niet beschikbaar. Je vraag is welkom via WhatsApp of mail; je krijgt dan persoonlijk antwoord.',
-    naam: 'Websitegesprek', mens: 'Liever een mens?', mic: 'Vraag inspreken', micStop: 'Stoppen met luisteren', luister: 'Ik luister…', spraakRegel: 'Je browser zet je spraak om in tekst, soms via Apple of Google. Wij krijgen alleen de tekst.', lees: 'Voorlezen', leesStop: 'Stoppen met voorlezen', geenMic: 'Inspreken lukt niet. Gebruik het microfoontje van je toetsenbord of typ je vraag.', wa: 'WhatsApp', of: 'of', mail: 'mail ons', bron: 'Lees meer', privacy: 'Privacy', nuttig: 'Was dit nuttig?', ja: 'Ja, nuttig', nee: 'Nee, niet nuttig',
+    naam: 'Websitegesprek', mens: 'Liever een mens?', mic: 'Vraag inspreken', micStop: 'Stoppen met luisteren', luister: 'Ik luister…', spraakRegel: 'Je browser zet je spraak om in tekst, soms via Apple of Google. Wij krijgen alleen de tekst.', lees: 'Voorlezen', leesStop: 'Stoppen met voorlezen', geenMic: 'Inspreken werkt niet in deze browser. Typ je vraag, of gebruik het microfoontje van je toetsenbord.', wa: 'WhatsApp', of: 'of', mail: 'mail ons', bron: 'Lees meer', privacy: 'Privacy', nuttig: 'Was dit nuttig?', ja: 'Ja, nuttig', nee: 'Nee, niet nuttig',
     v1: 'Je praat met een AI-assistent (Claude). Antwoorden kunnen fouten bevatten; wat telt, staat op onze website en in onze voorwaarden. Deel geen persoonsgegevens; liever een mens? Vraag het via WhatsApp of mail.',
     vol: 'Dit gesprek is vol. Begin een nieuw gesprek of vraag het via WhatsApp.', tegrootte: 'Je vraag is te lang (max. 500 tekens).', start: 'Verbinden…'
   } : {
@@ -224,7 +226,7 @@
   function luisteren(micKnop) {
     if (herk) { stopLuisteren(false); return; }
     stopLezen();
-    try { herk = new Herkenning(); } catch (e) { herk = null; bericht('a', T.geenMic); return; }
+    try { herk = new Herkenning(); } catch (e) { herk = null; micWerktNiet(micKnop); return; }
     herk.lang = NL ? 'nl-NL' : 'en-GB';
     herk.continuous = false;
     herk.interimResults = true;
@@ -242,7 +244,7 @@
       }
       invoer.value = (vooraf + (definitief + tussen).trim()).slice(0, 500);
     };
-    herk.onerror = function (ev) { if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed' || ev.error === 'audio-capture' || ev.error === 'language-not-supported') bericht('a', T.geenMic); };
+    herk.onerror = function (ev) { if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed' || ev.error === 'audio-capture' || ev.error === 'language-not-supported' || ev.error === 'network') micWerktNiet(micKnop); };
     herk.onend = function () {
       if (micTimer) { clearTimeout(micTimer); micTimer = null; }
       herk = null;
@@ -255,8 +257,18 @@
     try {
       herk.start();
       micTimer = setTimeout(function () { stopLuisteren(false); }, MIC_MAX_MS);
-    } catch (e) { herk = null; micKnop.setAttribute('aria-pressed', 'false'); micKnop.setAttribute('aria-label', T.mic); bericht('a', T.geenMic); }
+    } catch (e) { herk = null; micKnop.setAttribute('aria-pressed', 'false'); micKnop.setAttribute('aria-label', T.mic); micWerktNiet(micKnop); }
   }
+
+  // Besluit 455: werkt inspreken niet, dan verdwijnt de microfoon (ook na herladen in dit tabblad) in plaats van een knop die niets doet.
+  var MIC_UIT = 'wg-vraag-mic-uit';
+  function micWerktNiet(micKnop) {
+    if (micKnop) { micKnop.hidden = true; micKnop.disabled = true; }
+    var sr = el ? el.querySelector('.sr') : null; if (sr) sr.hidden = true;
+    try { sessionStorage.setItem(MIC_UIT, '1'); } catch (e) { /* niets */ }
+    bericht('a', T.geenMic);
+  }
+  function micUitGezet() { try { return sessionStorage.getItem(MIC_UIT) === '1'; } catch (e) { return false; } }
 
   function bericht(soort, tekst, bron, id) {
     var b = maak('div', { class: 'b ' + soort, 'data-t': tekst });
@@ -398,7 +410,7 @@
       // Microfoon alleen na akkoord Juridisch (blok op de site data-spraak="1", of VRAAG_SPRAAK=1 op de server) of voor de proef met ?vraagbaak=test.
       var blok = document.getElementById('wg-vraag-blok');
       var spraakAan = r.spraak || (blok ? blok.getAttribute('data-spraak') === '1' : false);
-      if (mic && (spraakAan || location.search.indexOf('vraagbaak=test') > -1)) { mic.hidden = false; mic.disabled = false; spraakRegel.hidden = false; }
+      if (mic && !micUitGezet() && (spraakAan || location.search.indexOf('vraagbaak=test') > -1)) { mic.hidden = false; mic.disabled = false; spraakRegel.hidden = false; }
     });
   }
 

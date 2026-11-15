@@ -221,3 +221,13 @@ test('zweef-kaart: data-zichtbaar="test" toont de chat alleen met ?vraagbaak=tes
   assert.equal(draai({ 'data-aan': '1', 'data-zichtbaar': 'test' }, '?vraagbaak=test'), true);
   assert.equal(draai({ 'data-aan': '1', 'data-zichtbaar': 'test' }, '?utm=x'), false);
 });
+
+test('besluit 455: venster altijd Nederlands en microfoon weg als inspreken niet werkt', () => {
+  const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
+  assert.match(js, /var NL = true;/);
+  assert.ok(!/navigator\.language/.test(js.split('var NL = true;')[0].split('\n').slice(-3).join('\n')));
+  assert.match(js, /herk\.onerror = function \(ev\) \{[^\n]*micWerktNiet\(micKnop\)/);
+  assert.match(js, /function micWerktNiet\(micKnop\) \{[\s\S]*?micKnop\.hidden = true;[\s\S]*?sr\.hidden = true;[\s\S]*?sessionStorage\.setItem\(MIC_UIT, '1'\)/);
+  assert.match(js, /if \(mic && !micUitGezet\(\) &&/);
+  assert.ok(!js.includes("bericht('a', T.geenMic); };"));
+});
