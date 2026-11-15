@@ -54,6 +54,16 @@ export function onderwerpVan(url) {
   try { const pad = new URL(url).pathname.replace(/\//g, ''); return pad || 'algemeen'; } catch { return 'overig'; }
 }
 
+// Besluit 477: tekstfragment naar de geciteerde zin. Alleen de eerste woorden van de eerste regel (robuust als de pagina
+// opmaak tussen de woorden heeft); browsers die het niet kennen, openen de pagina gewoon bovenaan.
+export function tekstFragment(citaat) {
+  const regel = String(citaat || '').split(/\n/).map((r) => r.replace(/^#+\s*/, '').trim()).find((r) => r.split(/\s+/).length >= 3);
+  if (!regel) return '';
+  const woorden = regel.replace(/[“”"]/g, '').split(/\s+/).slice(0, 8).join(' ').replace(/[.,;:!?]+$/, '');
+  const enc = encodeURIComponent(woorden).replace(/-/g, '%2D').replace(/,/g, '%2C').replace(/&/g, '%26');
+  return '#:~:text=' + enc;
+}
+
 // Controle van één antwoord {tekst, citaties:[{bron, tekst}]} (besluit 447). De citaten zijn door de API letterlijk uit de
 // pagina's gehaald; de code controleert nog wat de API niet doet: bron op onze site, getallen, valuta, risicowoorden, lengte.
 export function controleer(uitvoer, kb, { taal = 'nl', kbTekst, maxTekens = 700 } = {}) {
@@ -76,10 +86,15 @@ export function controleer(uitvoer, kb, { taal = 'nl', kbTekst, maxTekens = 700 
     if (!p) return doorverwijzing('bron_onbekend');
     if (!paginas.includes(p)) paginas.push(p);
   }
-  // Bron voor de bezoeker: de pagina die het vaakst is geciteerd (de algemene gegevens tellen als de homepage).
+  // Besluit 477: bron voor de bezoeker = de specifieke pagina als die geciteerd is (de homepage alleen als die de enige
+  // bron is), en daarvan de meest geciteerde. De link springt naar de geciteerde zin (tekstfragment, #:~:text=).
   const telling = new Map();
   for (const c of citaties) { const u = vindPagina(kb, c.bron).url; telling.set(u, (telling.get(u) || 0) + 1); }
-  const bron = [...telling.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const isHome = (u) => { try { return new URL(u).pathname === '/'; } catch { return false; } };
+  const gesorteerd = [...telling.entries()].sort((a, b) => (isHome(a[0]) - isHome(b[0])) || (b[1] - a[1]));
+  const bronPagina = gesorteerd[0][0];
+  const citaatVoorBron = citaties.find((c) => vindPagina(kb, c.bron).url === bronPagina && String(c.tekst || '').trim());
+  const bron = bronPagina + tekstFragment(citaatVoorBron?.tekst);
   const paginaNorm = normaliseer(paginas.map((p) => p.tekst).join('\n') + '\n' + (kb.algemeen || ''));
 
   // Alle getallen met eenheid uit het antwoord moeten in de kennisbank staan (VB7: niet omrekenen).

@@ -86,7 +86,7 @@ test('vraag → antwoord met bron en antwoord-ID; instructie, cache en geo in de
   assert.ok(t.v1.nl.includes('AI-assistent'));
   const r = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoe lang kan ik proberen? Mail me op jan@x.nl', pagina: 'https://websitegesprek.nl/start/' });
   assert.equal(r.antwoord, GOED.antwoord);
-  assert.equal(r.bron, 'https://websitegesprek.nl/proberen/');
+  assert.match(r.bron, /^https:\/\/websitegesprek\.nl\/proberen\/#:~:text=/);
   assert.match(r.id, /^V-/);
   const body = api.aanroepen[0].body;
   assert.equal(body.inference_geo, 'us');
@@ -201,7 +201,7 @@ test('HTTP: herkomst verplicht, CORS, healthz zonder sleutel, venster.js', async
     const p = await (await fetch(basis + '/v1/puzzel', { method: 'POST', body: '{}', headers: O })).json();
     const t = await (await fetch(basis + '/v1/token', { method: 'POST', headers: O, body: JSON.stringify({ uitdaging: p.uitdaging, oplossing: losPuzzelOp(p.uitdaging, p.bits) }) })).json();
     const v = await (await fetch(basis + '/v1/vraag', { method: 'POST', headers: O, body: JSON.stringify({ token: t.token, vraag: 'Hoe lang proberen?' }) })).json();
-    assert.equal(v.bron, 'https://websitegesprek.nl/proberen/');
+    assert.match(v.bron, /^https:\/\/websitegesprek\.nl\/proberen\/#:~:text=/);
     const groot = await fetch(basis + '/v1/vraag', { method: 'POST', headers: O, body: JSON.stringify({ token: t.token, vraag: 'x'.repeat(5000) }) });
     assert.equal(groot.status, 413);
     const js = await fetch(basis + '/v1/venster.js');

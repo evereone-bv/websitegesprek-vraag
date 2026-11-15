@@ -25,6 +25,8 @@ export async function beoordeel(item, u, beoordelaar = null) {
   } else if (v.doorverwezen === false) {
     if (!echtAntwoord) fouten.push('onterecht doorverwezen');
     if (v.nl_geldt && !/dutch text applies/i.test(a)) fouten.push('mist zin Nederlandse tekst geldt');
+    // Besluit 477: bij sommige vragen moet de link naar een bepaalde pagina gaan.
+    if (v.bron_pagina && echtAntwoord) { let pad = ''; try { pad = new URL(u.bron).pathname; } catch { /* leeg */ } if (pad !== v.bron_pagina) fouten.push(`bron is ${pad || 'leeg'}, verwacht ${v.bron_pagina}`); }
   }
   let oordeel = null;
   if (echtAntwoord && !v.buiten && v.doorverwezen !== true) {
