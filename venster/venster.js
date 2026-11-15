@@ -95,47 +95,47 @@
   // navy #0E1B2C, amber #F2B33D (één hoofdknop: Stuur), tekst #1B2633, lijnen #E3DED2, crème #F6F4EE,
   // Inter 16-17px, Bricolage Grotesque voor de kop, knoppen 48px radius 12px, kaart radius 16px, iconen getekend.
   var css = '' +
-    '#wgv{position:fixed;right:16px;bottom:max(16px,env(safe-area-inset-bottom));z-index:1000;width:min(400px,calc(100vw - 32px));height:min(640px,calc(100dvh - 32px));display:flex;flex-direction:column;background:#fff;color:#1B2633;border:1px solid #E3DED2;border-radius:16px;box-shadow:0 8px 28px rgba(14,27,44,.18);font:16px/1.5 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden}' +
-    '#wgv *{box-sizing:border-box}' +
-    '#wgv .k{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 8px 8px 24px;background:#0E1B2C;color:#F6F4EE;min-height:64px}' +
-    '#wgv .mk{display:flex;align-items:center;gap:12px;min-width:0}' +
-    '#wgv .lg{flex:0 0 36px;width:36px;height:36px;display:block}#wgv .lg svg{width:36px;height:36px;display:block}' +
-    '#wgv .nm{display:flex;flex-direction:column;min-width:0}' +
-    '#wgv .k h2{margin:0;font:700 19px/1.25 "Bricolage Grotesque",Inter,sans-serif;color:#F6F4EE}' +
-    '#wgv .sub{font-size:14px;line-height:1.4;color:#8E9BAA}' +
-    '#wgv button{font:inherit;cursor:pointer;border:0;-webkit-tap-highlight-color:transparent}' +
-    '#wgv .x{position:relative;width:48px;height:48px;border-radius:12px;background:transparent}' +
-    '#wgv .x::before,#wgv .x::after{content:"";position:absolute;left:14px;top:23px;width:20px;height:2px;border-radius:1px;background:#F6F4EE}' +
-    '#wgv .x::before{transform:rotate(45deg)}#wgv .x::after{transform:rotate(-45deg)}' +
-    '#wgv .m{margin:0;padding:16px 24px;font-size:14px;line-height:1.5;color:#5B6775;background:#F6F4EE;border-bottom:1px solid #E3DED2}' +
-    '#wgv .l{flex:1;overflow:auto;padding:16px 24px;display:flex;flex-direction:column;gap:16px;overscroll-behavior:contain}' +
-    '#wgv .b{max-width:88%;padding:12px 16px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}' +
-    '#wgv .b.u{align-self:flex-end;background:#0E1B2C;color:#F6F4EE;border-bottom-right-radius:4px}' +
-    '#wgv .b.a{align-self:flex-start;background:#F6F4EE;color:#1B2633;border-bottom-left-radius:4px}' +
-    '#wgv .b a{color:#0E1B2C;font-weight:600;text-decoration:underline;text-underline-offset:2px}' +
-    '#wgv .id{display:block;margin-top:8px;font-size:12px;line-height:1.4;color:#5B6775}' +
-    '#wgv .d{display:flex;gap:8px;margin-top:8px}' +
-    '#wgv .d button{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:#fff;border:1px solid #E3DED2;color:#0E1B2C}' +
-    '#wgv .d button svg{width:20px;height:20px;display:block}' +
-    '#wgv .d button[aria-pressed=true]{background:#0E1B2C;border-color:#0E1B2C;color:#F6F4EE}' +
-    '#wgv form{display:flex;gap:8px;align-items:flex-end;padding:16px 24px;border-top:1px solid #E3DED2;margin:0}' +
-    '#wgv textarea{flex:1;resize:none;min-height:48px;max-height:120px;padding:12px 16px;border:1px solid #5B6775;border-radius:12px;font:inherit;color:#1B2633;background:#fff}' +
-    '#wgv textarea::placeholder{color:#5B6775}' +
-    '#wgv textarea:focus-visible,#wgv button:focus-visible,#wgv a:focus-visible{outline:3px solid #0E1B2C;outline-offset:2px}' +
-    '#wgv .k button:focus-visible{outline-color:#F2B33D}' +
-    '#wgv .mi{flex:0 0 48px;display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:12px;background:#fff;border:2px solid #0E1B2C;color:#0E1B2C}' +
-    '#wgv .mi svg{width:22px;height:22px;display:block}' +
-    '#wgv .mi[aria-pressed=true]{background:#0E1B2C;color:#F2B33D}' +
-    '@media (prefers-reduced-motion:no-preference){#wgv .mi[aria-pressed=true]{animation:wgvPuls 1.2s ease-in-out infinite}@keyframes wgvPuls{50%{box-shadow:0 0 0 6px rgba(242,179,61,.45)}}}' +
-    '#wgv .mi[hidden],#wgv .sr[hidden]{display:none}' +
-    '#wgv .sr{margin:-8px 0 0;padding:0 24px 8px;font-size:12px;line-height:1.4;color:#5B6775}' +
-    '#wgv .s{min-height:48px;padding:0 24px;border-radius:12px;background:#F2B33D;color:#0E1B2C;font-weight:700}' +
-    '#wgv .s[disabled],#wgv textarea[disabled]{opacity:.55;cursor:default}' +
-    '#wgv .t{margin:0;padding:0 24px 16px;font-size:14px;line-height:1.5;color:#5B6775}' +
-    '#wgv .t a{display:inline-block;padding:4px 0;color:#0E1B2C;font-weight:600;text-decoration:underline;text-underline-offset:2px}' +
-    '@media (max-width:480px){#wgv{left:0;right:0;bottom:0;width:100%;height:min(88dvh,640px);border-radius:16px 16px 0 0;border-bottom:0}#wgv .k{padding-left:16px}#wgv .m,#wgv .l,#wgv form,#wgv .sr{padding-left:16px;padding-right:16px}#wgv .t{padding:0 16px max(16px,env(safe-area-inset-bottom))}}' +
-    '@media (prefers-reduced-motion:no-preference){#wgv{animation:wgvIn .2s ease-out}@keyframes wgvIn{from{opacity:0}to{opacity:1}}}' +
-    '@media print{#wgv{display:none}}';
+    '#wg-vraag-venster{position:fixed;right:16px;bottom:max(16px,env(safe-area-inset-bottom));z-index:1000;width:min(400px,calc(100vw - 32px));height:min(640px,calc(100dvh - 32px));display:flex;flex-direction:column;background:#fff;color:#1B2633;border:1px solid #E3DED2;border-radius:16px;box-shadow:0 8px 28px rgba(14,27,44,.18);font:16px/1.5 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overflow:hidden}' +
+    '#wg-vraag-venster *{box-sizing:border-box}' +
+    '#wg-vraag-venster .k{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 8px 8px 24px;background:#0E1B2C;color:#F6F4EE;min-height:64px}' +
+    '#wg-vraag-venster .mk{display:flex;align-items:center;gap:12px;min-width:0}' +
+    '#wg-vraag-venster .lg{flex:0 0 36px;width:36px;height:36px;display:block}#wg-vraag-venster .lg svg{width:36px;height:36px;display:block}' +
+    '#wg-vraag-venster .nm{display:flex;flex-direction:column;min-width:0}' +
+    '#wg-vraag-venster .k h2{margin:0;font:700 19px/1.25 "Bricolage Grotesque",Inter,sans-serif;color:#F6F4EE}' +
+    '#wg-vraag-venster .sub{font-size:14px;line-height:1.4;color:#8E9BAA}' +
+    '#wg-vraag-venster button{font:inherit;cursor:pointer;border:0;-webkit-tap-highlight-color:transparent}' +
+    '#wg-vraag-venster .x{position:relative;width:48px;height:48px;border-radius:12px;background:transparent}' +
+    '#wg-vraag-venster .x::before,#wg-vraag-venster .x::after{content:"";position:absolute;left:14px;top:23px;width:20px;height:2px;border-radius:1px;background:#F6F4EE}' +
+    '#wg-vraag-venster .x::before{transform:rotate(45deg)}#wg-vraag-venster .x::after{transform:rotate(-45deg)}' +
+    '#wg-vraag-venster .m{margin:0;padding:16px 24px;font-size:14px;line-height:1.5;color:#5B6775;background:#F6F4EE;border-bottom:1px solid #E3DED2}' +
+    '#wg-vraag-venster .l{flex:1;overflow:auto;padding:16px 24px;display:flex;flex-direction:column;gap:16px;overscroll-behavior:contain}' +
+    '#wg-vraag-venster .b{max-width:88%;padding:12px 16px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}' +
+    '#wg-vraag-venster .b.u{align-self:flex-end;background:#0E1B2C;color:#F6F4EE;border-bottom-right-radius:4px}' +
+    '#wg-vraag-venster .b.a{align-self:flex-start;background:#F6F4EE;color:#1B2633;border-bottom-left-radius:4px}' +
+    '#wg-vraag-venster .b a{color:#0E1B2C;font-weight:600;text-decoration:underline;text-underline-offset:2px}' +
+    '#wg-vraag-venster .id{display:block;margin-top:8px;font-size:12px;line-height:1.4;color:#5B6775}' +
+    '#wg-vraag-venster .d{display:flex;gap:8px;margin-top:8px}' +
+    '#wg-vraag-venster .d button{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:#fff;border:1px solid #E3DED2;color:#0E1B2C}' +
+    '#wg-vraag-venster .d button svg{width:20px;height:20px;display:block}' +
+    '#wg-vraag-venster .d button[aria-pressed=true]{background:#0E1B2C;border-color:#0E1B2C;color:#F6F4EE}' +
+    '#wg-vraag-venster form{display:flex;gap:8px;align-items:flex-end;padding:16px 24px;border-top:1px solid #E3DED2;margin:0}' +
+    '#wg-vraag-venster textarea{flex:1;resize:none;min-height:48px;max-height:120px;padding:12px 16px;border:1px solid #5B6775;border-radius:12px;font:inherit;color:#1B2633;background:#fff}' +
+    '#wg-vraag-venster textarea::placeholder{color:#5B6775}' +
+    '#wg-vraag-venster textarea:focus-visible,#wg-vraag-venster button:focus-visible,#wg-vraag-venster a:focus-visible{outline:3px solid #0E1B2C;outline-offset:2px}' +
+    '#wg-vraag-venster .k button:focus-visible{outline-color:#F2B33D}' +
+    '#wg-vraag-venster .mi{flex:0 0 48px;display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:12px;background:#fff;border:2px solid #0E1B2C;color:#0E1B2C}' +
+    '#wg-vraag-venster .mi svg{width:22px;height:22px;display:block}' +
+    '#wg-vraag-venster .mi[aria-pressed=true]{background:#0E1B2C;color:#F2B33D}' +
+    '@media (prefers-reduced-motion:no-preference){#wg-vraag-venster .mi[aria-pressed=true]{animation:wgVraagPuls 1.2s ease-in-out infinite}@keyframes wgVraagPuls{50%{box-shadow:0 0 0 6px rgba(242,179,61,.45)}}}' +
+    '#wg-vraag-venster .mi[hidden],#wg-vraag-venster .sr[hidden]{display:none}' +
+    '#wg-vraag-venster .sr{margin:-8px 0 0;padding:0 24px 8px;font-size:12px;line-height:1.4;color:#5B6775}' +
+    '#wg-vraag-venster .s{min-height:48px;padding:0 24px;border-radius:12px;background:#F2B33D;color:#0E1B2C;font-weight:700}' +
+    '#wg-vraag-venster .s[disabled],#wg-vraag-venster textarea[disabled]{opacity:.55;cursor:default}' +
+    '#wg-vraag-venster .t{margin:0;padding:0 24px 16px;font-size:14px;line-height:1.5;color:#5B6775}' +
+    '#wg-vraag-venster .t a{display:inline-block;padding:4px 0;color:#0E1B2C;font-weight:600;text-decoration:underline;text-underline-offset:2px}' +
+    '@media (max-width:480px){#wg-vraag-venster{left:0;right:0;bottom:0;width:100%;height:min(88dvh,640px);border-radius:16px 16px 0 0;border-bottom:0}#wg-vraag-venster .k{padding-left:16px}#wg-vraag-venster .m,#wg-vraag-venster .l,#wg-vraag-venster form,#wg-vraag-venster .sr{padding-left:16px;padding-right:16px}#wg-vraag-venster .t{padding:0 16px max(16px,env(safe-area-inset-bottom))}}' +
+    '@media (prefers-reduced-motion:no-preference){#wg-vraag-venster{animation:wgVraagIn .2s ease-out}@keyframes wgVraagIn{from{opacity:0}to{opacity:1}}}' +
+    '@media print{#wg-vraag-venster{display:none}}';
 
   // Logo Websitegesprek, gelijk aan de kop van websitegesprek.nl (zodat een schermafbeelding herkenbaar van ons is).
   var LOGO = '<svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#F2B33D"/><g transform="translate(0,16)"><path d="M118 150a46 46 0 0 1 46-46h184a46 46 0 0 1 46 46v136a46 46 0 0 1-46 46H236l-82 70v-70a46 46 0 0 1-36-45z" fill="#0E1B2C"/><g stroke="#F2B33D" stroke-width="26" stroke-linecap="round"><line x1="196" y1="196" x2="196" y2="240"/><line x1="256" y1="168" x2="256" y2="268"/><line x1="316" y1="196" x2="316" y2="240"/></g></g></svg>';
@@ -355,7 +355,7 @@
   function open() {
     if (el) { el.style.display = 'flex'; invoer.focus(); return; }
     var st = maak('style'); st.textContent = css; document.head.appendChild(st);
-    el = maak('div', { id: 'wgv', role: 'dialog', 'aria-label': T.titel, 'aria-modal': 'false' });
+    el = maak('div', { id: 'wg-vraag-venster', role: 'dialog', 'aria-label': T.titel, 'aria-modal': 'false' });
     var k = maak('div', { class: 'k' });
     var merk = maak('div', { class: 'mk' });
     var logo = maak('span', { class: 'lg' });

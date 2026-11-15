@@ -231,3 +231,17 @@ test('besluit 455: venster altijd Nederlands en microfoon weg als inspreken niet
   assert.match(js, /if \(mic && !micUitGezet\(\) &&/);
   assert.ok(!js.includes("bericht('a', T.geenMic); };"));
 });
+
+test('besluit 453: chatvenster heeft een eigen id (wg-vraag-venster), nooit wgv (botst met de demo op de homepage)', () => {
+  const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../venster/zweef-kaart.html', import.meta.url), 'utf8');
+  assert.ok(!/wgv/.test(js));
+  assert.ok(!/wgv/.test(html));
+  assert.match(js, /id: 'wg-vraag-venster'/);
+  assert.match(html, /#wg-vraag-venster:not/);
+});
+
+test('besluit 454: ronde chatknop heeft een gele rand van 2px', () => {
+  const html = readFileSync(new URL('../venster/zweef-kaart.html', import.meta.url), 'utf8');
+  assert.match(html, /\.wg-zweef\.wg-vraag-aan>summary\{background:#0E1B2C;box-shadow:0 0 0 2px #F2B33D/);
+});
