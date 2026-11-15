@@ -64,3 +64,11 @@ Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
 1. Pas na akkoord van Juridisch.
 2. Werkbon op websitegesprek.nl: in het zwevende kaartje `data-spraak="0"` vervangen door `data-spraak="1"` (staat naast `data-aan`).
 3. Zonder akkoord is de knop alleen te zien met `?vraagbaak=test&spraak=1`. De gewone testlink toont het venster zoals bezoekers het zien, zonder microfoon. Voorlezen is vervallen (besluit 456).
+
+## E. Model en testset (besluit 467)
+
+1. Bezoekers krijgen het model dat de volledige testset kiest: Sonnet 5.5 (met en zonder nadenken) en Haiku 5.5 (met nadenken) draaien allemaal; de meeste goede antwoorden wint, bij precies gelijk de snelste.
+2. Haiku valt alleen in bij drukte, een time-out of een netwerkfout van het gekozen model.
+3. De beoordelaar van de testset is Opus 5.5 (sterker dan het model dat hij nakijkt).
+4. Een volledige testset met drie varianten duurt ongeveer een half uur tot drie kwartier; tot hij klaar is, staat de vraagbaak uit als het de eerste keer is na een wijziging.
+5. Faalt een controle die het model kan verbeteren (geen bron, een getal of woord dat niet op de site staat, te lang), dan vraagt de server het één keer opnieuw met precies wat er mis was; pas daarna volgt de doorverwijzing.

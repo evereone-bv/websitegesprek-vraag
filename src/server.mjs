@@ -100,14 +100,15 @@ export function maakServer({ env = process.env, config = laadConfig(env), opslag
 
 // Proef met een kandidaat-kennisbank in een aparte, tijdelijke opslag (ontwerp §4.3). Besluit 448: met de vaste
 // beoordelaar. Besluit 447: 'denken' zet de variant vast ('low' of 'uit'); standaard de variant die de testset koos.
-export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = true, herhaal = 1, volledig = false, denken = null, opslagLive = null }) {
+export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = true, herhaal = 1, volledig = false, denken = null, model = null, opslagLive = null }) {
   return async (kandidaat) => {
     const { draaiTestset, laadTestset, tekstApiFout } = await import('./proef.mjs');
     const { losPuzzelOp } = await import('./beveiliging.mjs');
     const { maakBeoordelaar } = await import('./beoordelaar.mjs');
     const { kennisbankAlsTekst } = await import('./kennisbank.mjs');
     const variant = denken || opslagLive?.staat('proef:volledig', null)?.gekozen || config.denken;
-    const cfg = { ...config, modus: 'aan', diagAltijd: true, denkenVast: variant, perIpUur: 1e6, perIpDag: 1e6, perTokenVragen: 1e6, tokensPerIpUur: 1e6, puzzelBits: 2 };
+    const gekozenModel = model || opslagLive?.staat('proef:volledig', null)?.gekozenModel || config.model;
+    const cfg = { ...config, modus: 'aan', diagAltijd: true, denkenVast: variant, modelVast: gekozenModel, perIpUur: 1e6, perIpDag: 1e6, perTokenVragen: 1e6, tokensPerIpUur: 1e6, puzzelBits: 2 };
     const tijdelijk = openOpslag(':memory:');
     const vb = maakVraagbaak({ config: cfg, opslag: tijdelijk, fetchFn });
     vb.zetKennisbank(kandidaat, true);
@@ -136,13 +137,9 @@ export function kiesVariant(varianten) {
   const geslaagd = lijst.filter(([, v]) => v.geslaagd);
   const pool = geslaagd.length ? geslaagd : lijst;
   if (!pool.length) return null;
+  // Besluit 467 (vervangt de marge van 1 uit 461): kwaliteit eerst. De variant met de meeste goede antwoorden wint;
+  // alleen bij precies even goed de snelste.
   pool.sort((a, b) => (b[1].goed - a[1].goed) || (a[1].gemDuurMs - b[1].gemDuurMs));
-  // Besluit 461: bij (vrijwel) gelijke kwaliteit de snelste. Alleen onder geslaagde varianten, en hooguit 1 vraag minder goed.
-  if (geslaagd.length) {
-    const beste = pool[0][1].goed;
-    const bijna = pool.filter(([, v]) => v.goed >= beste - 1).sort((a, b) => a[1].gemDuurMs - b[1].gemDuurMs);
-    return bijna[0][0];
-  }
   return pool[0][0];
 }
 
@@ -172,27 +169,33 @@ export function startTaken({ vraagbaak, opslag, config }) {
     const { INSTRUCTIE_VERSIE } = await import('./instructie.mjs');
     const { BEOORDELAAR_VERSIE } = await import('./beoordelaar.mjs');
     const { laadTestset } = await import('./proef.mjs');
-    const sleutel = [CODE, vraagbaak.kb.versie, config.model, INSTRUCTIE_VERSIE, laadTestset().versie, BEOORDELAAR_VERSIE].join('|');
+    const sleutel = [CODE, vraagbaak.kb.versie, config.testModellen.join('+'), INSTRUCTIE_VERSIE, laadTestset().versie, BEOORDELAAR_VERSIE].join('|');
     const oud = opslag.staat('proef:volledig', null);
     if (oud && oud.sleutel === sleutel && !oud.fout) return;
     if (oud && Date.now() - Date.parse(oud.tijd) < 6 * 3_600_000 && oud.sleutel.split('|')[0] === CODE) return;
     // Besluit 447: beide nadenk-varianten volledig, met de beoordelaar (besluit 448).
     const varianten = {};
-    for (const denken of ['low', 'uit']) {
-      const u = await maakProef({ config, volledig: true, herhaal: 3, denken })(vraagbaak.kb).catch((e) => ({ ok: false, fout: `${e.soort || 'fout'} ${e.status || ''} ${e.message || ''} ${e.uitleg || ''}`.replace(/\s+/g, ' ').trim(), uitslag: [] }));
-      varianten[denken] = {
+    // Besluit 467: Sonnet met en zonder nadenken, Haiku met nadenken (Haiku zonder nadenken zakte steeds).
+    const combinaties = [];
+    for (const m of config.testModellen) for (const d of (m.includes('haiku') ? ['low'] : ['low', 'uit'])) combinaties.push([m, d]);
+    for (const [model, denken] of combinaties) {
+      const naam = `${model}|${denken}`;
+      const u = await maakProef({ config, volledig: true, herhaal: 3, denken, model })(vraagbaak.kb).catch((e) => ({ ok: false, fout: `${e.soort || 'fout'} ${e.status || ''} ${e.message || ''} ${e.uitleg || ''}`.replace(/\s+/g, ' ').trim(), uitslag: [] }));
+      varianten[naam] = { model, denken,
         geslaagd: !!u.ok, fout: u.fout || '', ...(u.apiFout ? { apiFout: u.apiFout, bij_vraag: u.bijVraag } : {}),
         goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout, gemDuurMs: u.gemDuurMs,
         fouten: (u.uitslag || []).filter((x) => !x.goed).map((x) => ({ id: x.id, soort: x.soort, fouten: x.details.map((d) => d.fouten.join('; ')), antwoord: x.details[0]?.antwoord, oordeel: x.details.find((d) => d.oordeel)?.oordeel?.toelichting, diag: x.details.find((d) => d.diag)?.diag })),
         antwoorden: (u.uitslag || []).map((x) => ({ id: x.id, goed: x.goed, antwoord: x.details.at(-1)?.antwoord, herkansing: !!x.details.at(-1)?.herkansing, oordeel: x.details.at(-1)?.oordeel ? { juist: x.details.at(-1).oordeel.juist, gegrond: x.details.at(-1).oordeel.gegrond, beantwoordt: x.details.at(-1).oordeel.beantwoordt, toezegging: x.details.at(-1).oordeel.toezegging, helder: x.details.at(-1).oordeel.helder, toelichting: x.details.at(-1).oordeel.toelichting } : null, blokken: x.details.at(-1)?.diag?.blokken })),
       };
-      opslag.log('proef', `volledige testset ${config.model} denken ${denken}: ${u.goed}/${u.totaal}, valkuilen fout ${u.valkuilFout}${u.fout ? ', fout ' + u.fout : ''}`);
+      opslag.log('proef', `volledige testset ${model} denken ${denken}: ${u.goed}/${u.totaal}, valkuilen fout ${u.valkuilFout}${u.fout ? ', fout ' + u.fout : ''}`);
     }
-    const gekozen = kiesVariant(varianten);
-    const g = gekozen ? varianten[gekozen] : {};
+    const gekozenNaam = kiesVariant(varianten);
+    const g = gekozenNaam ? varianten[gekozenNaam] : {};
+    const gekozen = g.denken || null;
+    const gekozenModel = g.model || null;
     const fout = Object.values(varianten).every((v) => v.fout) ? Object.values(varianten).map((v) => v.fout).join(' | ') : '';
     opslag.zetStaat('proef:volledig', {
-      sleutel, versie: VERSIE, tijd: new Date().toISOString(), model: config.model, instructie: INSTRUCTIE_VERSIE, beoordelaar: `${config.beoordelaarModel} ${BEOORDELAAR_VERSIE}`,
+      sleutel, versie: VERSIE, tijd: new Date().toISOString(), model: gekozenModel || config.model, gekozenModel, gekozenNaam, instructie: INSTRUCTIE_VERSIE, beoordelaar: `${config.beoordelaarModel} ${BEOORDELAAR_VERSIE}`,
       gekozen, geslaagd: !!g.geslaagd, fout, goed: g.goed, totaal: g.totaal, lat: g.lat, valkuilFout: g.valkuilFout, gemDuurMs: g.gemDuurMs,
       varianten,
     });

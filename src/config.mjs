@@ -4,6 +4,8 @@
 export const PRIJZEN = {
   'claude-haiku-5-5': { invoer: 0.10, uitvoer: 0.50, cache_schrijf: 0.125, cache_lees: 0.01, grens: 100_000, boven_factor: 5 },
   'claude-sonnet-5-5': { invoer: 2.00, uitvoer: 10.00, cache_schrijf: 2.50, cache_lees: 0.10, grens: Infinity, boven_factor: 1 },
+  // Besluit 467: Opus 5.5 als beoordelaar van de testset (platform.claude.com/docs/en/about-claude/pricing: $4/$20, cache $5/$0,20).
+  'claude-opus-5-5': { invoer: 4.00, uitvoer: 20.00, cache_schrijf: 5.00, cache_lees: 0.20, grens: Infinity, boven_factor: 1 },
 };
 export const GEO_FACTOR = 1.1;
 export const DOLLAR_NAAR_EURO = 0.95; // ruwe omrekening voor de plafonds in euro
@@ -20,12 +22,15 @@ export function laadConfig(env = process.env) {
     siteUrl: env.VRAAG_SITE_URL || 'https://websitegesprek.nl/',
     apiSleutel: env.ANTHROPIC_API_KEY || '',
     apiBasis: env.VRAAG_API_BASIS || 'https://api.anthropic.com',
-    model: env.VRAAG_MODEL || 'claude-haiku-5-5', // testset beslist (399); vaste versie, geen alias
-    terugvalModel: env.VRAAG_TERUGVAL_MODEL || '',
+    // Besluit 467 (Raymond 15 nov 09:53: 'ik wil echt goede antwoorden'): Sonnet 5.5 voor bezoekers, Haiku als terugval.
+    // De testset draait beide en kiest op kwaliteit (testModellen); vaste versies, geen alias.
+    model: env.VRAAG_MODEL || 'claude-sonnet-5-5',
+    testModellen: (env.VRAAG_TEST_MODELLEN || 'claude-sonnet-5-5,claude-haiku-5-5').split(',').map((m) => m.trim()).filter(Boolean),
+    terugvalModel: env.VRAAG_TERUGVAL_MODEL ?? 'claude-haiku-5-5',
     // Besluit 447: nadenken 'low' (adaptief, effort low) of 'uit'; de volledige testset meet beide en kiest.
     denken: env.VRAAG_DENKEN || 'low',
     // Besluit 448: vaste beoordelaar voor de testset (ander, sterker model dan de vraagbaak; vast model en vaste opdracht).
-    beoordelaarModel: env.VRAAG_BEOORDELAAR_MODEL || 'claude-sonnet-5-5',
+    beoordelaarModel: env.VRAAG_BEOORDELAAR_MODEL || 'claude-opus-5-5', // sterker dan het model dat hij nakijkt (448, 467)
     inferenceGeo: 'us', // VB1 Juridisch: nooit 'global'
     herkomst: (env.VRAAG_HERKOMST || 'https://websitegesprek.nl').split(',').map((s) => s.trim()).filter(Boolean),
     dataMap: env.VRAAG_DATA_DIR || '/data',
@@ -41,7 +46,7 @@ export function laadConfig(env = process.env) {
     plafondDagEuro: getal('VRAAG_PLAFOND_DAG', 8),
     serverVragenPerUur: getal('VRAAG_SERVER_PER_UUR', 600),
     puzzelBits: getal('VRAAG_PUZZEL_BITS', 18), // ca. 1 s op een telefoon
-    apiTimeoutMs: getal('VRAAG_API_TIMEOUT_MS', 11000),
+    apiTimeoutMs: getal('VRAAG_API_TIMEOUT_MS', 24000), // 467: Sonnet plus één herstelpoging moet erin passen
     // Bewaren (VB5)
     registerDagen: 30,
     // Rapportage (hartslag/alarm/export), komt in een volgende versie
