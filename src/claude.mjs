@@ -1,5 +1,8 @@
 // Aanroep van de Claude API (Messages). Geen tools, geen Files of Batch API (VB9), altijd inference_geo "us" (VB1).
-// Instructie en kennisbank als twee cache-blokken (prompt caching), zodat vervolgvragen goedkoop zijn.
+// Besluit 447: de pagina's gaan mee als search_result-blokken met citations aan (Anthropic, "Search results" en
+// "Citations"); de API haalt het geciteerde stuk zelf letterlijk uit de pagina. Citations en een afgedwongen
+// JSON-formaat (output_config.format) gaan volgens Anthropic niet samen, dus het antwoord is gewone tekst.
+// Instructie en pagina's zijn cache-blokken (prompt caching), zodat vervolgvragen goedkoop zijn.
 import { INSTRUCTIE } from './instructie.mjs';
 
 export class ApiFout extends Error {
@@ -11,20 +14,26 @@ export function veiligeUitleg(tekst) {
   return String(tekst || '').replace(/sk-ant-[A-Za-z0-9_-]+/g, '[sleutel]').replace(/\s+/g, ' ').slice(0, 200);
 }
 
-export async function vraagClaude({ config, kbTekst, beurten, model, fetchFn = fetch, signaal }) {
-  const body = {
-    model,
-    max_tokens: config.maxUitvoerTokens,
-    // Haiku 5.5 denkt standaard na en die denktokens tellen mee in max_tokens; dan stopt hij vóór de JSON (besluit 443).
-    // Uitzetten mag bij effort high of lager (standaard medium). Ook sneller en goedkoper; de controle doet de rest.
-    thinking: { type: 'disabled' },
-    inference_geo: config.inferenceGeo,
-    system: [
-      { type: 'text', text: INSTRUCTIE, cache_control: { type: 'ephemeral' } },
-      { type: 'text', text: `<kennisbank>\n${kbTekst}\n</kennisbank>`, cache_control: { type: 'ephemeral' } },
-    ],
-    messages: beurten,
-  };
+// Nadenken (besluit 447): 'uit' = thinking disabled (Haiku 5.5 staat dat toe bij effort high of lager);
+// 'low' = adaptief nadenken op effort low. Denktokens tellen mee in max_tokens, dus 'low' krijgt meer ruimte.
+export function denkInstelling(denken, maxUitvoer) {
+  if (denken === 'uit') return { thinking: { type: 'disabled' }, max_tokens: maxUitvoer };
+  return { thinking: { type: 'adaptive' }, output_config: { effort: denken || 'low' }, max_tokens: Math.max(maxUitvoer, 4000) };
+}
+
+// De kennisbank als search_result-blokken: één per pagina, plus de algemene gegevens (staan op elke pagina).
+export function bronBlokken(kb) {
+  const blokken = [];
+  if (kb.algemeen) blokken.push({ type: 'search_result', source: 'https://websitegesprek.nl/', title: 'Algemene gegevens (op elke pagina van websitegesprek.nl)', content: [{ type: 'text', text: kb.algemeen }], citations: { enabled: true } });
+  for (const p of kb.paginas) {
+    blokken.push({ type: 'search_result', source: p.url, title: p.titel || p.url, content: [{ type: 'text', text: p.tekst }], citations: { enabled: true } });
+  }
+  if (blokken.length) blokken[blokken.length - 1].cache_control = { type: 'ephemeral' };
+  return blokken;
+}
+
+// Eén aanroep naar /v1/messages met nette foutsoorten.
+export async function roepClaude({ config, body, fetchFn = fetch, signaal }) {
   let res;
   try {
     res = await fetchFn(`${config.apiBasis}/v1/messages`, {
@@ -41,12 +50,30 @@ export async function vraagClaude({ config, kbTekst, beurten, model, fetchFn = f
   if (!res.ok) {
     const type = data?.error?.type || '';
     const uitleg = veiligeUitleg(data?.error?.message);
-    // Nooit de sleutel of de volledige foutmelding loggen; alleen soort en status.
+    // Nooit de sleutel of de volledige foutmelding loggen; alleen soort, status en een opgeschoonde korte melding.
     if (res.status === 401 || res.status === 403 || type === 'authentication_error' || type === 'permission_error') throw new ApiFout('sleutel', res.status, type, uitleg);
     if (res.status === 402 || /credit|billing|spend/i.test(String(data?.error?.message || ''))) throw new ApiFout('tegoed', res.status, type, uitleg);
     if (res.status === 429) throw new ApiFout('druk', res.status, type, uitleg);
     throw new ApiFout('overig', res.status, type, uitleg);
   }
-  const tekst = (data?.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
-  return { tekst, usage: data?.usage || {}, model: data?.model || model, stop: data?.stop_reason || '' };
+  return data || {};
+}
+
+// Vraag aan de vraagbaak: berichten = [{role, content: tekst}, ...]; de pagina's gaan voor de eerste vraag.
+export async function vraagClaude({ config, kb, beurten, model, denken = 'low', fetchFn = fetch, signaal }) {
+  const berichten = beurten.map((b, i) => (i === 0
+    ? { role: 'user', content: [...bronBlokken(kb), { type: 'text', text: String(b.content) }] }
+    : { role: b.role, content: String(b.content) }));
+  const body = {
+    model,
+    ...denkInstelling(denken, config.maxUitvoerTokens),
+    inference_geo: config.inferenceGeo,
+    system: [{ type: 'text', text: INSTRUCTIE, cache_control: { type: 'ephemeral' } }],
+    messages: berichten,
+  };
+  const data = await roepClaude({ config, body, fetchFn, signaal });
+  const tekstBlokken = (data?.content || []).filter((b) => b.type === 'text');
+  const tekst = tekstBlokken.map((b) => b.text).join('');
+  const citaties = tekstBlokken.flatMap((b) => (b.citations || []).map((c) => ({ bron: c.source || c.url || '', tekst: c.cited_text || '' })));
+  return { tekst, citaties, usage: data?.usage || {}, model: data?.model || model, stop: data?.stop_reason || '' };
 }

@@ -22,6 +22,10 @@ export function laadConfig(env = process.env) {
     apiBasis: env.VRAAG_API_BASIS || 'https://api.anthropic.com',
     model: env.VRAAG_MODEL || 'claude-haiku-5-5', // testset beslist (399); vaste versie, geen alias
     terugvalModel: env.VRAAG_TERUGVAL_MODEL || '',
+    // Besluit 447: nadenken 'low' (adaptief, effort low) of 'uit'; de volledige testset meet beide en kiest.
+    denken: env.VRAAG_DENKEN || 'low',
+    // Besluit 448: vaste beoordelaar voor de testset (ander, sterker model dan de vraagbaak; vast model en vaste opdracht).
+    beoordelaarModel: env.VRAAG_BEOORDELAAR_MODEL || 'claude-sonnet-5-5',
     inferenceGeo: 'us', // VB1 Juridisch: nooit 'global'
     herkomst: (env.VRAAG_HERKOMST || 'https://websitegesprek.nl').split(',').map((s) => s.trim()).filter(Boolean),
     dataMap: env.VRAAG_DATA_DIR || '/data',

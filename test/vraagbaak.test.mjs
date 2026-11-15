@@ -9,16 +9,23 @@ import { maakServer, maakProef } from '../src/server.mjs';
 import { losPuzzelOp } from '../src/beveiliging.mjs';
 
 const kb = JSON.parse(readFileSync(new URL('./fixtures/kennisbank.json', import.meta.url), 'utf8'));
-const GOED = { antwoord: 'Je kunt Websitegesprek 3 dagen gratis proberen, zonder betaalgegevens.', bron_url: 'https://websitegesprek.nl/proberen/', citaat: 'Probeer Websitegesprek 3 dagen gratis , zonder betaalgegevens.', onderwerp: 'proef', zeker: true, buiten_onderwerp: false };
+const GOED = { antwoord: 'Je kunt Websitegesprek 3 dagen gratis proberen, zonder betaalgegevens.', bron: 'https://websitegesprek.nl/proberen/', citaat: 'Probeer Websitegesprek 3 dagen gratis' };
+const OORDEEL_GOED = { juist: true, gegrond: true, beantwoordt: true, toezegging: false, toelichting: '' };
 
-function nepApi({ uitvoer = GOED, status = 200, fout = null, usage = { input_tokens: 50, cache_creation_input_tokens: 4000, output_tokens: 80 } } = {}) {
+// Nagebootste API: antwoorden met citations (besluit 447) en oordelen van de beoordelaar (besluit 448).
+function nepApi({ uitvoer = GOED, status = 200, fout = null, oordeel = OORDEEL_GOED, usage = { input_tokens: 50, cache_creation_input_tokens: 4000, output_tokens: 80 } } = {}) {
   const aanroepen = [];
   const fn = async (url, opts) => {
-    aanroepen.push({ url, body: JSON.parse(opts.body), headers: opts.headers });
-    const data = status === 200 ? { content: [{ type: 'text', text: JSON.stringify(uitvoer) }], usage, model: 'claude-haiku-5-5' } : { error: { type: fout || 'api_error', message: fout || 'x' } };
+    const body = JSON.parse(opts.body);
+    aanroepen.push({ url, body, headers: opts.headers });
+    let data;
+    if (status !== 200) data = { error: { type: fout || 'api_error', message: fout || 'x' } };
+    else if (body.output_config?.format) data = { content: [{ type: 'text', text: JSON.stringify(oordeel) }], usage, model: body.model, stop_reason: 'end_turn' };
+    else data = { content: [{ type: 'text', text: uitvoer.antwoord, citations: uitvoer.bron ? [{ type: 'search_result_location', source: uitvoer.bron, title: 't', cited_text: uitvoer.citaat, search_result_index: 0, start_block_index: 0, end_block_index: 1 }] : [] }], usage, model: 'claude-haiku-5-5', stop_reason: 'end_turn' };
     return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
   };
   fn.aanroepen = aanroepen;
+  fn.vraagbaakAanroepen = () => aanroepen.filter((x) => !x.body.output_config?.format);
   return fn;
 }
 
@@ -81,8 +88,14 @@ test('vraag → antwoord met bron en antwoord-ID; instructie, cache en geo in de
   assert.match(r.id, /^V-/);
   const body = api.aanroepen[0].body;
   assert.equal(body.inference_geo, 'us');
-  assert.equal(body.system.length, 2);
-  assert.ok(body.system.every((b) => b.cache_control?.type === 'ephemeral'));
+  assert.equal(body.system.length, 1);
+  assert.equal(body.system[0].cache_control?.type, 'ephemeral');
+  // Besluit 447: de pagina's als search_result-blokken met citations, laatste blok in de cache.
+  const bronnen = body.messages[0].content.filter((b) => b.type === 'search_result');
+  assert.equal(bronnen.length, kb.paginas.length + (kb.algemeen ? 1 : 0));
+  assert.ok(bronnen.every((b) => b.citations?.enabled === true));
+  assert.equal(bronnen.at(-1).cache_control?.type, 'ephemeral');
+  assert.ok(!('output_config' in body && body.output_config.format), 'citations en structured outputs gaan niet samen');
   assert.ok(!('tools' in body));
   assert.ok(!JSON.stringify(body.messages).includes('jan@x.nl'), 'persoonsgegevens weg vóór de API');
   const reg = opslag.db.prepare('SELECT * FROM register WHERE id = ?').get(r.id);
@@ -102,7 +115,7 @@ test('geschiedenis staat op de server; de browser stuurt alleen de nieuwe vraag'
 });
 
 test('foute modeluitvoer wordt vervangen door de doorverwijzing', async () => {
-  const { vb } = opzet({}, nepApi({ uitvoer: { ...GOED, antwoord: 'Je krijgt 50% korting!', citaat: '', onderwerp: 'prijs' } }));
+  const { vb } = opzet({}, nepApi({ uitvoer: { ...GOED, antwoord: 'Je krijgt 50% korting!' } }));
   const t = gesprek(vb);
   const r = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Korting?' });
   assert.equal(r.doorverwezen, true);
@@ -201,8 +214,11 @@ test('proef met kandidaat-kennisbank: 10 feitvragen, apart van de live opslag', 
   const config = laadConfig({ VRAAG_ACTIEF: '1', ANTHROPIC_API_KEY: 'sk-ant-test-' + 'x'.repeat(30), VRAAG_DATA_DIR: ':memory:' });
   const u = await maakProef({ config, fetchFn: api })(kb);
   assert.equal(u.totaal, 10);
-  assert.equal(api.aanroepen.length, 10);
-  assert.equal(u.ok, false, 'een api die altijd hetzelfde zegt, haalt de proef niet');
+  assert.equal(api.vraagbaakAanroepen().length, 10);
+  assert.equal(api.aanroepen.length, 20, 'elk antwoord één oordeel van de beoordelaar');
+  assert.equal(u.ok, true, 'alle oordelen goed → geslaagd');
+  const api2 = nepApi({ oordeel: { ...OORDEEL_GOED, beantwoordt: false } });
+  assert.equal((await maakProef({ config, fetchFn: api2 })(kb)).ok, false, 'beantwoordt de vraag niet → niet geslaagd');
 });
 
 test('besluit 409: microfoon voor bezoekers standaard uit, aan met VRAAG_SPRAAK=1', () => {
@@ -260,17 +276,43 @@ test('besluit 443: geen temperature in de aanroep (Haiku 5.5 weigert die met een
 });
 
 test('besluit 443: reden van vervangen zichtbaar in de proef, nooit voor de bezoeker', async () => {
-  const api = nepApi({ uitvoer: { ...GOED, bron_url: 'https://elders.nl/' } });
+  const api = nepApi({ uitvoer: { ...GOED, bron: 'https://elders.nl/' } });
   const config = laadConfig({ VRAAG_ACTIEF: '1', ANTHROPIC_API_KEY: 'sk-ant-test-' + 'x'.repeat(30), VRAAG_DATA_DIR: ':memory:' });
   const u = await maakProef({ config, fetchFn: api, aantal: 1 })(kb);
   assert.equal(u.uitslag[0].details[0].diag.reden, 'bron_onbekend');
 });
 
-test('besluit 443: denken uit en ruimte voor het antwoord (Haiku 5.5 telt denktokens mee in max_tokens)', async () => {
+test('besluit 447: nadenken low (adaptief, effort low, ruim max_tokens) of uit', async () => {
   const { vb, api } = opzet();
   const t = gesprek(vb);
   await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoi' });
-  assert.deepEqual(api.aanroepen[0].body.thinking, { type: 'disabled' });
-  assert.ok(api.aanroepen[0].body.max_tokens >= 1200);
-  assert.equal('output_config' in api.aanroepen[0].body, false, 'geen effort boven high, anders weigert de API denken uit');
+  const b = api.aanroepen[0].body;
+  assert.deepEqual(b.thinking, { type: 'adaptive' });
+  assert.equal(b.output_config.effort, 'low');
+  assert.ok(b.max_tokens >= 4000);
+  const { vb: vb2, api: api2 } = opzet({ VRAAG_DENKEN: 'uit' });
+  const t2 = gesprek(vb2);
+  await vb2.vraag({ ip: '10.0.0.1', tokenWaarde: t2.token, vraagTekst: 'Hoi' });
+  assert.deepEqual(api2.aanroepen[0].body.thinking, { type: 'disabled' });
+  assert.equal('output_config' in api2.aanroepen[0].body, false, 'geen effort boven high, anders weigert de API denken uit');
+});
+
+test('besluit 447: kiesVariant kiest de geslaagde variant met de meeste goed, bij gelijkspel de snelste', async () => {
+  const { kiesVariant } = await import('../src/server.mjs');
+  assert.equal(kiesVariant({ low: { geslaagd: true, goed: 48, gemDuurMs: 3000 }, uit: { geslaagd: true, goed: 48, gemDuurMs: 1500 } }), 'uit');
+  assert.equal(kiesVariant({ low: { geslaagd: true, goed: 49, gemDuurMs: 3000 }, uit: { geslaagd: true, goed: 48, gemDuurMs: 1500 } }), 'low');
+  assert.equal(kiesVariant({ low: { geslaagd: true, goed: 46, gemDuurMs: 3000 }, uit: { geslaagd: false, goed: 50, gemDuurMs: 1500 } }), 'low');
+  assert.equal(kiesVariant({ low: { fout: 'x' }, uit: { fout: 'y' } }), null);
+});
+
+test('besluit 448: proef gebruikt de beoordelaar met vast model, structured outputs en geo us', async () => {
+  const api = nepApi({ oordeel: { ...OORDEEL_GOED, gegrond: false, toelichting: 'verzonnen' } });
+  const config = laadConfig({ VRAAG_ACTIEF: '1', ANTHROPIC_API_KEY: 'sk-ant-test-' + 'x'.repeat(30), VRAAG_DATA_DIR: ':memory:' });
+  const u = await maakProef({ config, fetchFn: api, aantal: 2 })(kb);
+  const oordelen = api.aanroepen.filter((x) => x.body.output_config?.format);
+  assert.equal(oordelen.length, 2);
+  assert.equal(oordelen[0].body.model, 'claude-sonnet-5-5');
+  assert.equal(oordelen[0].body.inference_geo, 'us');
+  assert.equal(u.goed, 0, 'niet gegrond telt als fout');
+  assert.match(u.uitslag[0].details[0].fouten.join(), /niet gegrond/);
 });

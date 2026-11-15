@@ -45,7 +45,9 @@ Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
 
 ## C. Bijwerken
 
-- Automatisch elke zondag 04:37: code uit GitHub (main), nieuwste basis-image, herstart (`vraag-update.timer`).
+- Automatisch elke nacht 04:37 (besluit 449, was wekelijks): code uit GitHub (main), nieuwste basis-image, herstart (`vraag-update.timer`).
+- Direct bijwerken (alleen als het niet tot de nacht kan wachten): TCP 22 tijdelijk open in `fw-vraag`, dan op de Mac
+  `ssh -i ~/.ssh/websitegesprek_vraag root@vraag.websitegesprek.nl 'systemctl start vraag-update.service && echo GELUKT'`, daarna TCP 22 weer dicht.
 - Beveiligingsupdates van Ubuntu dagelijks (unattended-upgrades).
 
 ## D. Uitval

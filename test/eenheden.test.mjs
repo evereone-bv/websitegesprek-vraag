@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { htmlNaarTekst, ontdubbel, padToegestaan, kennisbankAlsTekst, vindPagina } from '../src/kennisbank.mjs';
-import { controleer, getallenMetEenheid, parseModelUitvoer } from '../src/controle.mjs';
+import { controleer, getallenMetEenheid } from '../src/controle.mjs';
 import { schoonOp, taal } from '../src/schoon.mjs';
 import { maakPuzzel, losPuzzelOp, controleerPuzzel, ipHash, antwoordId, herkomstToegestaan } from '../src/beveiliging.mjs';
 import { kostenDollar } from '../src/config.mjs';
@@ -42,64 +42,56 @@ test('getallen met eenheid worden genormaliseerd', () => {
   assert.ok(getallenMetEenheid('€14,95').has('€14.95'));
 });
 
+// Besluit 447: uitvoer = gewone tekst met citaties (door de API letterlijk uit de pagina's gehaald).
 const goedAntwoord = {
-  antwoord: 'Je kunt Websitegesprek 3 dagen gratis proberen, zonder betaalgegevens.',
-  bron_url: 'https://websitegesprek.nl/proberen/',
-  citaat: 'Probeer Websitegesprek 3 dagen gratis , zonder betaalgegevens.',
-  onderwerp: 'proef', zeker: true, buiten_onderwerp: false,
+  tekst: 'Je kunt Websitegesprek 3 dagen gratis proberen, zonder betaalgegevens.',
+  citaties: [{ bron: 'https://websitegesprek.nl/proberen/', tekst: 'Probeer Websitegesprek 3 dagen gratis' }],
 };
 
-test('controle: goed antwoord gaat door', () => {
+test('controle: goed antwoord met bronvermelding gaat door', () => {
   const r = controleer(goedAntwoord, kb, { kbTekst });
   assert.equal(r.ok, true, r.reden);
   assert.equal(r.bron, 'https://websitegesprek.nl/proberen/');
+  assert.equal(r.onderwerp, 'proberen');
 });
 
-test('controle: citaat dat niet op de pagina staat → doorverwijzing', () => {
-  const r = controleer({ ...goedAntwoord, citaat: 'Probeer Websitegesprek 30 dagen gratis met korting.' }, kb, { kbTekst });
+test('controle: antwoord zonder bronvermelding → doorverwijzing', () => {
+  const r = controleer({ ...goedAntwoord, citaties: [] }, kb, { kbTekst });
   assert.equal(r.vervangen, true);
-  assert.equal(r.reden, 'citaat_niet_op_pagina');
-});
-
-test('controle: strikt onderwerp zonder citaat → doorverwijzing', () => {
-  const r = controleer({ ...goedAntwoord, citaat: '' }, kb, { kbTekst });
-  assert.equal(r.reden, 'citaat_ontbreekt');
+  assert.equal(r.reden, 'geen_bronvermelding');
 });
 
 test('controle: getal dat niet in de kennisbank staat → doorverwijzing', () => {
-  const r = controleer({ ...goedAntwoord, antwoord: 'Je kunt het 14 dagen gratis proberen.' }, kb, { kbTekst });
+  const r = controleer({ ...goedAntwoord, tekst: 'Je kunt het 14 dagen gratis proberen.' }, kb, { kbTekst });
   assert.match(r.reden, /getal_niet_in_kennisbank/);
 });
 
 test('controle: dollars en risicowoorden → doorverwijzing', () => {
-  assert.equal(controleer({ ...goedAntwoord, onderwerp: 'werking', citaat: '', antwoord: 'Dat is ongeveer $16 per maand.' }, kb, { kbTekst }).reden, 'valuta');
-  assert.match(controleer({ ...goedAntwoord, onderwerp: 'werking', citaat: '', antwoord: 'Je krijgt garantie op alles.' }, kb, { kbTekst }).reden, /risicowoord/);
+  assert.equal(controleer({ ...goedAntwoord, tekst: 'Dat is ongeveer $16 per maand.' }, kb, { kbTekst }).reden, 'valuta');
+  assert.match(controleer({ ...goedAntwoord, tekst: 'Je krijgt garantie op alles.' }, kb, { kbTekst }).reden, /risicowoord/);
 });
 
 test('controle: onbekende bron en links in het antwoord', () => {
-  assert.equal(controleer({ ...goedAntwoord, bron_url: 'https://evil.example/' }, kb, { kbTekst }).reden, 'bron_onbekend');
-  const r = controleer({ ...goedAntwoord, antwoord: goedAntwoord.antwoord + ' Zie https://evil.example/x' }, kb, { kbTekst });
+  assert.equal(controleer({ ...goedAntwoord, citaties: [{ bron: 'https://evil.example/', tekst: 'x' }] }, kb, { kbTekst }).reden, 'bron_onbekend');
+  const r = controleer({ ...goedAntwoord, tekst: goedAntwoord.tekst + ' Zie https://evil.example/x' }, kb, { kbTekst });
   assert.ok(!/evil/.test(r.antwoord));
 });
 
-test('controle: buiten onderwerp en niet zeker', () => {
-  const b = controleer({ antwoord: 'Ik beantwoord alleen vragen over Websitegesprek.', buiten_onderwerp: true }, kb, { kbTekst });
+test('controle: vaste codes voor buiten onderwerp en doorverwijzen geven de vaste teksten', () => {
+  const b = controleer({ tekst: '[BUITEN_ONDERWERP]', citaties: [] }, kb, { kbTekst });
   assert.equal(b.onderwerp, 'buiten_onderwerp');
-  const n = controleer({ ...goedAntwoord, zeker: false }, kb, { kbTekst });
+  assert.match(b.antwoord, /alleen vragen over Websitegesprek/);
+  const n = controleer({ tekst: '[DOORVERWIJZEN]', citaties: [] }, kb, { kbTekst });
   assert.equal(n.doorverwezen, true);
   assert.equal(n.vervangen, false);
+  assert.match(n.antwoord, /WhatsApp/);
+  assert.equal(controleer({ tekst: '', citaties: [] }, kb, { kbTekst }).reden, 'leeg');
 });
 
-test('controle VB7: Engels + prijs/proef → zin dat de Nederlandse tekst geldt', () => {
-  const r = controleer({ ...goedAntwoord, antwoord: 'You can try Websitegesprek free for 3 days, without payment details.' }, kb, { kbTekst, taal: 'en' });
+test('controle VB7: Engels antwoord → zin dat de Nederlandse tekst geldt', () => {
+  const r = controleer({ ...goedAntwoord, tekst: 'You can try Websitegesprek free for 3 days, without payment details.' }, kb, { kbTekst, taal: 'en' });
   assert.equal(r.ok, true, r.reden);
   assert.match(r.antwoord, /Dutch text applies/);
-});
-
-test('modeluitvoer: JSON ook met tekst eromheen, anders null', () => {
-  assert.equal(parseModelUitvoer('Hier: {"antwoord":"x"} klaar').antwoord, 'x');
-  assert.equal(parseModelUitvoer('geen json'), null);
-  assert.equal(controleer(null, kb, { kbTekst }).reden, 'geen_json');
 });
 
 test('persoonsgegevens worden weggehaald', () => {
@@ -151,10 +143,19 @@ test('testset: minstens 50 vragen en 10 valkuilen', () => {
   assert.ok(vindPagina(kb, 'https://websitegesprek.nl/proberen/'));
 });
 
-test('beoordeel: verboden inhoud en doorverwijzing', () => {
-  const item = { verwacht: { doorverwezen: true, mag_niet: ['korting'] } };
-  assert.equal(beoordeel(item, { antwoord: 'Geen idee', doorverwezen: true }).goed, true);
-  assert.equal(beoordeel(item, { antwoord: 'Je krijgt korting', doorverwezen: false }).goed, false);
+test('beoordeel (448): harde controles en beoordelaar', async () => {
+  const doorv = { soort: 'valkuil', verwacht: { doorverwezen: true, nooit: ['0612345678'] } };
+  assert.equal((await beoordeel(doorv, { antwoord: 'Vraag het via WhatsApp', doorverwezen: true })).goed, true);
+  assert.equal((await beoordeel(doorv, { antwoord: 'Ik bel 0612345678', doorverwezen: false })).goed, false);
+  const feit = { soort: 'feit', vraag: 'Hoe lang proberen?', verwachting: '3 dagen', verwacht: { doorverwezen: false } };
+  const ja = async () => ({ geldig: true, juist: true, gegrond: true, beantwoordt: true, toezegging: false, toelichting: '' });
+  const nee = async () => ({ geldig: true, juist: true, gegrond: false, beantwoordt: true, toezegging: false, toelichting: 'verzonnen' });
+  assert.equal((await beoordeel(feit, { antwoord: '3 dagen', doorverwezen: false }, ja)).goed, true);
+  assert.equal((await beoordeel(feit, { antwoord: '3 dagen', doorverwezen: false }, nee)).goed, false);
+  assert.equal((await beoordeel(feit, { antwoord: 'Vraag het via WhatsApp', doorverwezen: true }, ja)).goed, false);
+  // Weigering met het woord 'korting' is geen fout meer (was een trefwoordfout in de oude testset).
+  const val = { soort: 'valkuil', verwacht: { doorverwezen: null, nooit: [] } };
+  assert.equal((await beoordeel(val, { antwoord: 'Ik kan geen korting toezeggen.', doorverwezen: false }, ja)).goed, true);
 });
 
 test('VA2: openbare repository bevat geen sleutels, bezoekersgegevens, exports of logboeken', async () => {
