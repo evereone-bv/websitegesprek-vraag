@@ -29,6 +29,10 @@ export function beoordeel(item, u) {
   return { goed: fouten.length === 0, fouten };
 }
 
+export function tekstApiFout(a) {
+  return `api_${a.soort} ${a.status || ''} ${a.type || ''} ${a.uitleg || ''}`.replace(/\s+/g, ' ').trim();
+}
+
 // vraagFn(vraag, gesprekState) => uitkomst; gebruikt voor meerbeurt.
 export async function draaiTestset(vraagFn, { items, herhaalValkuilen = 3, filter } = {}) {
   const lijst = (items || laadTestset().items).filter((i) => !filter || filter(i));
@@ -39,7 +43,11 @@ export async function draaiTestset(vraagFn, { items, herhaalValkuilen = 3, filte
     for (let k = 0; k < keer; k++) {
       const gesprek = { beurten: [] };
       let u;
-      for (const vraag of item.beurten || [item.vraag]) u = await vraagFn(vraag, gesprek);
+      for (const vraag of item.beurten || [item.vraag]) {
+        u = await vraagFn(vraag, gesprek);
+        // Besluit 443: een API-fout zegt niets over de antwoorden; stop meteen en toon de foutsoort.
+        if (u?.apiFout) return { totaal: 0, goed: 0, lat: 0, valkuilFout: 0, geslaagd: false, apiFout: u.apiFout, bijVraag: item.id, uitslag };
+      }
       const b = beoordeel(item, u);
       details.push({ antwoord: u.antwoord, bron: u.bron, fouten: b.fouten });
       if (!b.goed) allesGoed = false;
@@ -79,6 +87,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   };
   const filter = args.includes('--snel') ? (it) => it.soort === 'feit' : null;
   const u = await draaiTestset(vraagFn, { filter, herhaalValkuilen: args.includes('--snel') ? 1 : 3 });
+  if (u.apiFout) { console.log(`API-fout bij ${u.bijVraag}: ${tekstApiFout(u.apiFout)}`); process.exit(3); }
   opslag.db.prepare("DELETE FROM register WHERE pagina = '/proef'").run();
   for (const r of u.uitslag) if (!r.goed) console.log(`FOUT ${r.id} (${r.soort}): ${r.details.map((d) => d.fouten.join('; ')).join(' | ')}\n  antwoord: ${r.details[0].antwoord}`);
   console.log(`\nUitslag model ${config.model}: ${u.goed}/${u.totaal} goed (lat ${u.lat}), valkuilen fout: ${u.valkuilFout} → ${u.geslaagd ? 'GESLAAGD' : 'NIET GESLAAGD'}`);

@@ -161,8 +161,8 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     } catch (e) {
       boekApi(false);
       if (e instanceof ApiFout && (e.soort === 'sleutel' || e.soort === 'tegoed')) zetUit(e.soort === 'sleutel' ? 'sleutelfout' : 'tegoed');
-      opslag.log('api', e instanceof ApiFout ? `${e.soort} ${e.status}` : 'onbekende fout');
-      uitkomst = { ok: false, vervangen: true, reden: 'api_' + (e.soort || 'fout'), antwoord: DOORVERWIJZING[taal], bron: 'https://websitegesprek.nl/contact/', onderwerp: 'onbekend', zeker: false, doorverwezen: true, apiFout: true };
+      opslag.log('api', e instanceof ApiFout ? `${e.soort} ${e.status} ${e.message === 'API niet bereikbaar' ? '' : e.message} ${e.uitleg || ''}`.trim() : 'onbekende fout');
+      uitkomst = { apiDetail: e instanceof ApiFout ? { soort: e.soort, status: e.status, type: e.message === 'API niet bereikbaar' ? '' : e.message, uitleg: e.uitleg || '' } : { soort: 'onbekend', status: 0, type: '', uitleg: '' }, ok: false, vervangen: true, reden: 'api_' + (e.soort || 'fout'), antwoord: DOORVERWIJZING[taal], bron: 'https://websitegesprek.nl/contact/', onderwerp: 'onbekend', zeker: false, doorverwezen: true, apiFout: true };
     } finally {
       clearTimeout(timer);
     }
@@ -175,7 +175,7 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       id, t0, paginaPad, schoon, uitkomst.antwoord, uitkomst.bron, uitkomst.onderwerp, uitkomst.zeker ? 1 : 0,
       uitkomst.doorverwezen ? 1 : 0, uitkomst.vervangen ? 1 : 0, uitkomst.reden || '', kb?.versie || '', gebruiktModel, kostenMilliCent, taal, klok() - t0);
-    return { id, antwoord: uitkomst.antwoord, bron: uitkomst.bron, doorverwezen: !!uitkomst.doorverwezen, nl_geldt: taal !== 'nl' };
+    return { id, antwoord: uitkomst.antwoord, bron: uitkomst.bron, doorverwezen: !!uitkomst.doorverwezen, nl_geldt: taal !== 'nl', ...(uitkomst.apiDetail ? { apiFout: uitkomst.apiDetail } : {}) };
   }
 
   function duim({ ip, tokenWaarde, id, waarde }) {

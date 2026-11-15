@@ -225,3 +225,29 @@ test('VA3: tellers met een IP-code verlopen binnen 24 uur en de opslag wist ze e
   const register = opslag.db.prepare('SELECT * FROM register').all();
   for (const r of register) assert.ok(!JSON.stringify(r).includes('10.0.0.1'));
 });
+
+test('besluit 443: proef stopt bij de eerste API-fout en toont foutsoort, zonder sleutel', async () => {
+  const api = nepApi({ status: 400, fout: 'invalid_request_error' });
+  const config = laadConfig({ VRAAG_ACTIEF: '1', ANTHROPIC_API_KEY: 'sk-ant-test-' + 'x'.repeat(30), VRAAG_DATA_DIR: ':memory:' });
+  const u = await maakProef({ config, fetchFn: api, volledig: true, herhaal: 3 })(kb);
+  assert.equal(api.aanroepen.length, 1, 'na de eerste fout geen verdere aanroepen');
+  assert.equal(u.ok, false);
+  assert.equal(u.apiFout.soort, 'overig');
+  assert.equal(u.apiFout.status, 400);
+  assert.match(u.fout, /^api_overig 400 invalid_request_error/);
+  assert.doesNotMatch(JSON.stringify(u), /sk-ant-test/);
+});
+
+test('besluit 443: foutmelding van Anthropic wordt ingekort en een sleutel erin weggehaald', async () => {
+  const { veiligeUitleg } = await import('../src/claude.mjs');
+  assert.equal(veiligeUitleg('bad key sk-ant-api03-abcDEF_123 here'), 'bad key [sleutel] here');
+  assert.equal(veiligeUitleg('x'.repeat(500)).length, 200);
+});
+
+test('besluit 443: bezoeker krijgt bij een API-fout geen foutdetails', async () => {
+  const { vb } = opzet({}, nepApi({ status: 400, fout: 'invalid_request_error' }));
+  const t = gesprek(vb);
+  const r = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoi' });
+  assert.equal(r.doorverwezen, true);
+  assert.equal(r.apiFout.status, 400, 'intern beschikbaar voor de proef');
+});
