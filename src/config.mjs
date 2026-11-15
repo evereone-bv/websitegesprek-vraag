@@ -47,6 +47,7 @@ export function laadConfig(env = process.env) {
     // Rapportage (hartslag/alarm/export), komt in een volgende versie
     rapportageUrl: env.VRAAG_RAPPORTAGE_URL || '',
     rapportageSleutel: env.VRAAG_RAPPORTAGE_SLEUTEL || '',
+    cacheTtl: env.VRAAG_CACHE_TTL === '5m' ? '5m' : '1h', // besluit 461
     beheerSleutel: env.VRAAG_BEHEER_SLEUTEL || '', // voor /beheer/* (export, aan/uit); alleen lokaal op de server
   };
 }
@@ -56,9 +57,11 @@ export function kostenDollar(model, usage = {}) {
   if (!p) return 0;
   const invoer = usage.input_tokens || 0;
   const schrijf = usage.cache_creation_input_tokens || 0;
+  // Besluit 461: schrijven in de cache van 1 uur kost 2x de invoerprijs (5 minuten: cache_schrijf, 1,25x).
+  const schrijf1u = Math.min(schrijf, usage.cache_creation?.ephemeral_1h_input_tokens || 0);
   const lees = usage.cache_read_input_tokens || 0;
   const uit = usage.output_tokens || 0;
   const totaalPrompt = invoer + schrijf + lees;
   const f = (totaalPrompt > p.grens ? p.boven_factor : 1) * GEO_FACTOR;
-  return f * (invoer * p.invoer + schrijf * p.cache_schrijf + lees * p.cache_lees + uit * p.uitvoer) / 1_000_000;
+  return f * (invoer * p.invoer + (schrijf - schrijf1u) * p.cache_schrijf + schrijf1u * p.invoer * 2 + lees * p.cache_lees + uit * p.uitvoer) / 1_000_000;
 }

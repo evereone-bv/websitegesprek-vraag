@@ -22,13 +22,16 @@ export function denkInstelling(denken, maxUitvoer) {
 }
 
 // De kennisbank als search_result-blokken: één per pagina, plus de algemene gegevens (staan op elke pagina).
-export function bronBlokken(kb) {
+// Besluit 461: cache van 1 uur voor instructie en pagina's (vaste inhoud), zodat ook een eerste vraag na een rustige
+// periode uit de cache komt (sneller). Bron: platform.claude.com/docs/en/build-with-claude/prompt-caching (1h = 2x invoerprijs bij schrijven).
+export function cacheInstelling(ttl) { return ttl === '1h' ? { type: 'ephemeral', ttl: '1h' } : { type: 'ephemeral' }; }
+export function bronBlokken(kb, ttl = '1h') {
   const blokken = [];
   if (kb.algemeen) blokken.push({ type: 'search_result', source: 'https://websitegesprek.nl/', title: 'Algemene gegevens (op elke pagina van websitegesprek.nl)', content: [{ type: 'text', text: kb.algemeen }], citations: { enabled: true } });
   for (const p of kb.paginas) {
     blokken.push({ type: 'search_result', source: p.url, title: p.titel || p.url, content: [{ type: 'text', text: p.tekst }], citations: { enabled: true } });
   }
-  if (blokken.length) blokken[blokken.length - 1].cache_control = { type: 'ephemeral' };
+  if (blokken.length) blokken[blokken.length - 1].cache_control = cacheInstelling(ttl);
   return blokken;
 }
 
@@ -62,13 +65,13 @@ export async function roepClaude({ config, body, fetchFn = fetch, signaal }) {
 // Vraag aan de vraagbaak: berichten = [{role, content: tekst}, ...]; de pagina's gaan voor de eerste vraag.
 export async function vraagClaude({ config, kb, beurten, model, denken = 'low', fetchFn = fetch, signaal }) {
   const berichten = beurten.map((b, i) => (i === 0
-    ? { role: 'user', content: [...bronBlokken(kb), { type: 'text', text: String(b.content) }] }
+    ? { role: 'user', content: [...bronBlokken(kb, config.cacheTtl), { type: 'text', text: String(b.content) }] }
     : { role: b.role, content: String(b.content) }));
   const body = {
     model,
     ...denkInstelling(denken, config.maxUitvoerTokens),
     inference_geo: config.inferenceGeo,
-    system: [{ type: 'text', text: INSTRUCTIE, cache_control: { type: 'ephemeral' } }],
+    system: [{ type: 'text', text: INSTRUCTIE, cache_control: cacheInstelling(config.cacheTtl) }],
     messages: berichten,
   };
   const data = await roepClaude({ config, body, fetchFn, signaal });

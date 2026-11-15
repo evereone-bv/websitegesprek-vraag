@@ -300,7 +300,9 @@ test('besluit 447: nadenken low (adaptief, effort low, ruim max_tokens) of uit',
 test('besluit 447: kiesVariant kiest de geslaagde variant met de meeste goed, bij gelijkspel de snelste', async () => {
   const { kiesVariant } = await import('../src/server.mjs');
   assert.equal(kiesVariant({ low: { geslaagd: true, goed: 48, gemDuurMs: 3000 }, uit: { geslaagd: true, goed: 48, gemDuurMs: 1500 } }), 'uit');
-  assert.equal(kiesVariant({ low: { geslaagd: true, goed: 49, gemDuurMs: 3000 }, uit: { geslaagd: true, goed: 48, gemDuurMs: 1500 } }), 'low');
+  // Besluit 461: 1 vraag minder goed telt als gelijke kwaliteit → de snelste; 2 of meer minder → de beste.
+  assert.equal(kiesVariant({ low: { geslaagd: true, goed: 49, gemDuurMs: 3000 }, uit: { geslaagd: true, goed: 48, gemDuurMs: 1500 } }), 'uit');
+  assert.equal(kiesVariant({ low: { geslaagd: true, goed: 50, gemDuurMs: 3000 }, uit: { geslaagd: true, goed: 48, gemDuurMs: 1500 } }), 'low');
   assert.equal(kiesVariant({ low: { geslaagd: true, goed: 46, gemDuurMs: 3000 }, uit: { geslaagd: false, goed: 50, gemDuurMs: 1500 } }), 'low');
   assert.equal(kiesVariant({ low: { fout: 'x' }, uit: { fout: 'y' } }), null);
 });
@@ -394,4 +396,29 @@ test('besluit 455 (voorwaarde Juridisch): Engelse AI-melding boven het eerste an
   const laatste = api.aanroepen.filter((a) => /messages/.test(a.url)).at(-1);
   assert.ok(!JSON.stringify(laatste.body.messages).includes('You are chatting with an AI assistant'));
   assert.ok(t2.token);
+});
+
+test('besluit 461: cache van 1 uur op instructie en pagina\'s, kosten met 2x invoerprijs voor schrijven', async () => {
+  const api = nepApi();
+  const { vb } = opzet({}, api);
+  const t = gesprek(vb);
+  await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoe lang kan ik gratis proberen?', pagina: 'https://websitegesprek.nl/' });
+  const body = api.vraagbaakAanroepen()[0].body;
+  assert.deepEqual(body.system[0].cache_control, { type: 'ephemeral', ttl: '1h' });
+  const blokken = body.messages[0].content.filter((b) => b.cache_control);
+  assert.equal(blokken.length, 1);
+  assert.deepEqual(blokken[0].cache_control, { type: 'ephemeral', ttl: '1h' });
+  const { kostenDollar } = await import('../src/config.mjs');
+  const vijf = kostenDollar('claude-haiku-5-5', { cache_creation_input_tokens: 10000, cache_creation: { ephemeral_5m_input_tokens: 10000, ephemeral_1h_input_tokens: 0 } });
+  const uur = kostenDollar('claude-haiku-5-5', { cache_creation_input_tokens: 10000, cache_creation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 10000 } });
+  assert.ok(uur > vijf, 'schrijven voor 1 uur is duurder dan voor 5 minuten');
+});
+
+test('besluit 461: healthz toont de snelheid van echte antwoorden (mediaan en p90), zonder inhoud', async () => {
+  const { vb } = opzet();
+  const t = gesprek(vb);
+  await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoe lang kan ik gratis proberen?', pagina: 'https://websitegesprek.nl/' });
+  const h = vb.gezondheid();
+  assert.equal(typeof h.duur_ms_mediaan_24u, 'number');
+  assert.equal(typeof h.duur_ms_p90_24u, 'number');
 });
