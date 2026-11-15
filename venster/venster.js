@@ -12,6 +12,7 @@
   var WA = 'https://wa.me/31611729912?text=' + encodeURIComponent('Hoi! Ik heb een vraag over Websitegesprek: ');
   var MAIL = 'mailto:info@websitegesprek.nl';
   var PRIVACY = 'https://websitegesprek.nl/privacy/'; // VA1 (Juridisch 14 nov)
+  var VOORLEZEN = false; // Besluit 456 (Raymond 15 nov): voorlezen werkte niet op de iPhone, dus geen speakerknop.
   var MIC_MAX_MS = 30000; // S1: microfoon hooguit 30 seconden
   // Besluit 455 (wens Raymond 15 nov): het venster is altijd Nederlands, ook in een Engelstalige browser.
   // Antwoorden volgen nog wel de taal van de vraag (instructie). VB7 (Engelse melding) ligt ter toets bij Juridisch.
@@ -289,7 +290,7 @@
       ja.onclick = function () { duim(id, 1, ja, nee); };
       nee.onclick = function () { duim(id, -1, nee, ja); };
       d.appendChild(ja); d.appendChild(nee);
-      if (stem()) {
+      if (VOORLEZEN && stem()) {
         var lees = icoonKnop(LUID, T.lees);
         lees.onclick = function () { leesVoor(tekst, lees); };
         d.appendChild(lees);

@@ -187,10 +187,10 @@ async function antwoordKnoppen(stemmen) {
   return t.dom.alle.filter((e) => e.tag === 'button' && /Voorlezen/.test(e.attrs['aria-label'] || ''));
 }
 
-test('S6: luidsprekertje alleen met een stem op het toestel (localService), nooit via het net', async () => {
+test('besluit 456: geen speakerknop, ook niet met een stem op het toestel (S6 blijft gelden als hij terugkomt)', async () => {
   assert.equal((await antwoordKnoppen([{ lang: 'nl-NL', localService: false, name: 'Google Nederlands' }])).length, 0);
   assert.equal((await antwoordKnoppen([])).length, 0);
-  assert.equal((await antwoordKnoppen([{ lang: 'nl-NL', localService: true, name: 'Xander' }])).length, 1);
+  assert.equal((await antwoordKnoppen([{ lang: 'nl-NL', localService: true, name: 'Xander' }])).length, 0);
 });
 
 test('S4: geen eigen opname of geluid naar onze server', () => {
