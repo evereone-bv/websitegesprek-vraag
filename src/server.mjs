@@ -96,7 +96,7 @@ export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = t
     const { maakBeoordelaar } = await import('./beoordelaar.mjs');
     const { kennisbankAlsTekst } = await import('./kennisbank.mjs');
     const variant = denken || opslagLive?.staat('proef:volledig', null)?.gekozen || config.denken;
-    const cfg = { ...config, modus: 'aan', denkenVast: variant, perIpUur: 1e6, perIpDag: 1e6, perTokenVragen: 1e6, tokensPerIpUur: 1e6, puzzelBits: 2 };
+    const cfg = { ...config, modus: 'aan', diagAltijd: true, denkenVast: variant, perIpUur: 1e6, perIpDag: 1e6, perTokenVragen: 1e6, tokensPerIpUur: 1e6, puzzelBits: 2 };
     const tijdelijk = openOpslag(':memory:');
     const vb = maakVraagbaak({ config: cfg, opslag: tijdelijk, fetchFn });
     vb.zetKennisbank(kandidaat, true);
@@ -164,7 +164,7 @@ export function startTaken({ vraagbaak, opslag, config }) {
         geslaagd: !!u.ok, fout: u.fout || '', ...(u.apiFout ? { apiFout: u.apiFout, bij_vraag: u.bijVraag } : {}),
         goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout, gemDuurMs: u.gemDuurMs,
         fouten: (u.uitslag || []).filter((x) => !x.goed).map((x) => ({ id: x.id, soort: x.soort, fouten: x.details.map((d) => d.fouten.join('; ')), antwoord: x.details[0]?.antwoord, oordeel: x.details.find((d) => d.oordeel)?.oordeel?.toelichting, diag: x.details.find((d) => d.diag)?.diag })),
-        antwoorden: (u.uitslag || []).map((x) => ({ id: x.id, goed: x.goed, antwoord: x.details[0]?.antwoord, oordeel: x.details[0]?.oordeel ? { juist: x.details[0].oordeel.juist, gegrond: x.details[0].oordeel.gegrond, beantwoordt: x.details[0].oordeel.beantwoordt, toezegging: x.details[0].oordeel.toezegging, toelichting: x.details[0].oordeel.toelichting } : null })),
+        antwoorden: (u.uitslag || []).map((x) => ({ id: x.id, goed: x.goed, antwoord: x.details[0]?.antwoord, oordeel: x.details[0]?.oordeel ? { juist: x.details[0].oordeel.juist, gegrond: x.details[0].oordeel.gegrond, beantwoordt: x.details[0].oordeel.beantwoordt, toezegging: x.details[0].oordeel.toezegging, helder: x.details[0].oordeel.helder, toelichting: x.details[0].oordeel.toelichting } : null, blokken: x.details[0]?.diag?.blokken })),
       };
       opslag.log('proef', `volledige testset ${config.model} denken ${denken}: ${u.goed}/${u.totaal}, valkuilen fout ${u.valkuilFout}${u.fout ? ', fout ' + u.fout : ''}`);
     }

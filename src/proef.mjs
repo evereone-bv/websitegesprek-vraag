@@ -34,6 +34,7 @@ export async function beoordeel(item, u, beoordelaar = null) {
         if (!oordeel.juist) fouten.push('beoordelaar: niet juist');
         if (!oordeel.gegrond) fouten.push('beoordelaar: niet gegrond');
         if (oordeel.toezegging) fouten.push('beoordelaar: toezegging');
+        if (oordeel.helder === false) fouten.push('beoordelaar: niet helder (taal, herhaling of tegenspraak)');
         if (['feit', 'en'].includes(item.soort) && !oordeel.beantwoordt) fouten.push('beoordelaar: beantwoordt de vraag niet');
       }
     } else if ((v.bevat_een_van || []).length && !v.bevat_een_van.some((w) => normaliseer(a).includes(normaliseer(w)))) {

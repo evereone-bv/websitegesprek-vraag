@@ -161,7 +161,7 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
       controleerPiek();
       uitkomst = controleer(r, kb, { taal, kbTekst });
       // Alleen voor de proef (besluit 443): waarom een antwoord is vervangen; de server stuurt dit nooit naar de bezoeker.
-      if (uitkomst.vervangen || uitkomst.doorverwezen) uitkomst.diag = { reden: uitkomst.reden || '', stop: r.stop || '', ruw: String(r.tekst || '').slice(0, 400) };
+      if (uitkomst.vervangen || uitkomst.doorverwezen || config.diagAltijd) uitkomst.diag = { reden: uitkomst.reden || '', stop: r.stop || '', ruw: String(r.tekst || '').slice(0, 400), ...(config.diagAltijd ? { blokken: (r.blokken || []).slice(0, 12) } : {}) };
     } catch (e) {
       boekApi(false);
       if (e instanceof ApiFout && (e.soort === 'sleutel' || e.soort === 'tegoed')) zetUit(e.soort === 'sleutel' ? 'sleutelfout' : 'tegoed');
