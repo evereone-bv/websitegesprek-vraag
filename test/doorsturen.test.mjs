@@ -21,7 +21,7 @@ function cfg(extra = {}) {
 }
 let teller = 0;
 function regel(opslag, { tijd = NU - 2 * 60 * 60_000, pagina = '/', vraag = 'Wat kost het?', antwoord = 'Het kost...', duim = null, id } = {}) {
-  const nr = id || 'V-' + String(++teller).padStart(6, '0');
+  const nr = id || 'T-' + String(++teller).padStart(6, '0'); // T-: nooit een echt antwoordnummer in de repo
   opslag.db.prepare(`INSERT INTO register (id, tijd, pagina, vraag, antwoord, bron, onderwerp, zeker, doorverwezen, vervangen, reden, duim, kb_versie, model, kosten_milli_cent, taal, duur_ms)
     VALUES (?, ?, ?, ?, ?, 'https://websitegesprek.nl/', 'prijs', 1, 0, 0, '', ?, 'kb1', 'claude-sonnet-5-5', 9, 'nl', 2000)`).run(nr, tijd, pagina, vraag, antwoord, duim);
   return nr;
@@ -252,7 +252,7 @@ test('480: ondertekening is HMAC-SHA256 over "t.body"', () => {
 test('480: kiesRegels houdt (tijd, id) als cursor aan, ook bij gelijke tijd', () => {
   const opslag = openOpslag(':memory:');
   const t = NU - 2 * 3600_000;
-  regel(opslag, { tijd: t, id: 'V-AAAAA1' }); regel(opslag, { tijd: t, id: 'V-AAAAA2' });
-  const na = kiesRegels(opslag.db, { tijd: t, id: 'V-AAAAA1' }, NU);
-  assert.deepEqual(na.map((r) => r.id), ['V-AAAAA2']);
+  regel(opslag, { tijd: t, id: 'T-AAAAA1' }); regel(opslag, { tijd: t, id: 'T-AAAAA2' });
+  const na = kiesRegels(opslag.db, { tijd: t, id: 'T-AAAAA1' }, NU);
+  assert.deepEqual(na.map((r) => r.id), ['T-AAAAA2']);
 });
