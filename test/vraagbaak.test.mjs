@@ -340,3 +340,37 @@ test('421 (Juridisch): testmodus houdt het register; bij de eerste keer live wor
   assert.ok(!JSON.stringify(vb.gezondheid()).includes('Testvraag'), 'healthz toont nooit inhoud');
   assert.ok(opslag);
 });
+
+// Besluit 457: antwoord zonder bronvermelding → één keer opnieuw vragen met citaten; pas daarna doorverwijzen.
+function nepApiReeks(uitvoeren) {
+  let i = 0;
+  const basis = nepApi();
+  const fn = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    if (body.output_config?.format) return basis(url, opts);
+    const u = uitvoeren[Math.min(i++, uitvoeren.length - 1)];
+    return nepApi({ uitvoer: u })(url, opts);
+  };
+  fn.aantal = () => i;
+  return fn;
+}
+
+test('457: zonder bron eerst opnieuw vragen; lukt het dan wel, dan een gewoon antwoord', async () => {
+  const api = nepApiReeks([{ antwoord: 'Je kunt het 3 dagen gratis proberen.', bron: null }, GOED]);
+  const { vb, opslag } = opzet({}, api);
+  const t = gesprek(vb);
+  const r = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoe lang kan ik gratis proberen?', pagina: 'https://websitegesprek.nl/' });
+  assert.equal(api.aantal(), 2);
+  assert.equal(r.doorverwezen, false);
+  assert.equal(r.antwoord.includes('3 dagen'), true);
+  assert.equal(opslag.db.prepare('SELECT reden FROM register WHERE id = ?').get(r.id).reden, 'opnieuw_met_bron');
+});
+
+test('457: ook de tweede keer zonder bron → doorverwijzing, niet vaker dan één extra poging', async () => {
+  const api = nepApiReeks([{ antwoord: 'Iets zonder bron.', bron: null }]);
+  const { vb } = opzet({}, api);
+  const t = gesprek(vb);
+  const r = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Ik heb al onderhoud, waarom Websitegesprek?', pagina: 'https://websitegesprek.nl/' });
+  assert.equal(api.aantal(), 2);
+  assert.equal(r.doorverwezen, true);
+});

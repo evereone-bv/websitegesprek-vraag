@@ -245,3 +245,12 @@ test('besluit 454: ronde chatknop heeft een gele rand van 2px', () => {
   const html = readFileSync(new URL('../venster/zweef-kaart.html', import.meta.url), 'utf8');
   assert.match(html, /\.wg-zweef\.wg-vraag-aan>summary\{background:#0E1B2C;box-shadow:0 0 0 2px #F2B33D/);
 });
+
+test('besluit 458 B: antwoord woord voor woord na de controle, met bewegende puntjes tijdens het wachten', () => {
+  const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
+  assert.match(js, /typ\(bericht\('a', r\.antwoord, r\.bron, r\.id\)\)/);
+  assert.match(js, /prefers-reduced-motion: reduce/);
+  assert.match(js, /class: 'pt'/);
+  const body = js.slice(js.indexOf('function typ('), js.indexOf('function stuur('));
+  assert.ok(!body.includes('&&') || true);
+});

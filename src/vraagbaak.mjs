@@ -121,6 +121,10 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
   }
 
   // ---- vraag ----
+  const OPNIEUW_MET_BRON = {
+    nl: 'Geef je antwoord opnieuw, maar onderbouw het met citaten uit de pagina\'s van websitegesprek.nl. Staat het niet op de pagina\'s, zeg dan dat je het niet zeker weet.',
+    en: 'Give your answer again, but support it with citations from the websitegesprek.nl pages. If it is not on the pages, say that you are not sure.'
+  };
   async function vraag({ ip, tokenWaarde, vraagTekst, pagina }) {
     const t0 = klok();
     const s = status();
@@ -160,6 +164,17 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
       kostenMilliCent = boekKosten(kostenDollar(gebruiktModel, r.usage));
       controleerPiek();
       uitkomst = controleer(r, kb, { taal, kbTekst });
+      // Besluit 457: het model gaf wel een antwoord maar zonder bronvermelding. Eén keer opnieuw vragen, nu uitdrukkelijk
+      // met citaten uit de pagina's; pas als dat ook niet lukt, volgt de doorverwijzing. De controle blijft even streng.
+      if (uitkomst.reden === 'geen_bronvermelding' && String(r.tekst || '').trim()) {
+        try {
+          const nogmaals = [...berichten, { role: 'assistant', content: String(r.tekst).slice(0, 2000) }, { role: 'user', content: OPNIEUW_MET_BRON[taal === 'en' ? 'en' : 'nl'] }];
+          const r2 = await vraagClaude({ config, kb, beurten: nogmaals, model: gebruiktModel, denken, fetchFn, signaal: ctrl.signal });
+          kostenMilliCent += boekKosten(kostenDollar(gebruiktModel, r2.usage));
+          const u2 = controleer(r2, kb, { taal, kbTekst });
+          if (!u2.vervangen) { uitkomst = { ...u2, reden: 'opnieuw_met_bron' }; r = r2; }
+        } catch (e) { /* tweede poging mislukt: de eerste uitkomst (doorverwijzing) blijft staan */ }
+      }
       // Alleen voor de proef (besluit 443): waarom een antwoord is vervangen; de server stuurt dit nooit naar de bezoeker.
       if (uitkomst.vervangen || uitkomst.doorverwezen || config.diagAltijd) uitkomst.diag = { reden: uitkomst.reden || '', stop: r.stop || '', ruw: String(r.tekst || '').slice(0, 400), ...(config.diagAltijd ? { blokken: (r.blokken || []).slice(0, 12) } : {}) };
     } catch (e) {

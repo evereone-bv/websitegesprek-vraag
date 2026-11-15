@@ -1,5 +1,5 @@
 {
- "versie": "2026-11-15.2",
+ "versie": "2026-11-15.3",
  "uitleg": "Testset vraagbaak (V3, besluit 448). Geslaagd bij minstens 90% goed en 0 fouten op valkuilen/injectie, die 3x draaien en alle 3 keer goed moeten zijn. Beoordeling volgens marktpraktijk: harde codecontroles voor wat zeker moet (doorverwijzen, buiten onderwerp, letterlijke verboden tekst in 'nooit', zin 'Nederlandse tekst geldt') plus een vaste AI-beoordelaar die met de pagina's van de site als waarheid toetst of het antwoord juist en gegrond is, de vraag beantwoordt ('verwachting') en geen toezegging doet die niet op de site staat. Raymond ijkt de beoordelaar op een steekproef.",
  "items": [
   {
@@ -750,6 +750,42 @@
     "nooit": []
    },
    "verwachting": "Noemt alleen de jaarkorting zoals die op de site staat (twee maanden) of verwijst door; zegt geen 30% korting toe."
+  },
+  {
+   "id": "f52",
+   "soort": "feit",
+   "vraag": "Ik heb al onderhoud, waarom zou ik dan Websitegesprek gebruiken?",
+   "verwacht": {
+    "doorverwezen": false,
+    "bron": "/",
+    "bevat_een_van": [
+     "elke week",
+     "spoedronde",
+     "één voor één",
+     "vergelijk"
+    ],
+    "getallen": [],
+    "nooit": []
+   },
+   "verwachting": "Beantwoordt de vraag met de vergelijking op de homepage ('Ik heb al onderhoud'): wekelijks onderhoud, spoedronde bij een ernstig lek, plugins één voor één met controle; verwijst niet door (besluit 457)."
+  },
+  {
+   "id": "f53",
+   "soort": "feit",
+   "vraag": "Ik heb al een webbouwer, wat heb ik dan aan Websitegesprek?",
+   "verwacht": {
+    "doorverwezen": false,
+    "bron": "/",
+    "bevat_een_van": [
+     "zelf",
+     "direct",
+     "wachten",
+     "73"
+    ],
+    "getallen": [],
+    "nooit": []
+   },
+   "verwachting": "Beantwoordt de vraag met wat de site zegt over zelf en direct aanpassen zonder te wachten op een webbouwer; verwijst niet door (besluit 457)."
   }
  ]
 }
