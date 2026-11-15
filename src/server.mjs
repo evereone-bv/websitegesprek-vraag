@@ -79,6 +79,7 @@ export function maakServer({ env = process.env, config = laadConfig(env), opslag
       }
       const status = r.status || 200;
       delete r.status;
+      delete r.apiFout; // foutdetails alleen voor de proef, nooit naar de bezoeker (besluit 443)
       return stuur(status, r, cors);
     }
     return stuur(404, { ok: false, fout: 'niet gevonden' });
@@ -105,6 +106,10 @@ export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = t
       return { ...r, buiten: reg?.onderwerp === 'buiten_onderwerp' };
     }, { items, herhaalValkuilen: herhaal });
     const ok = volledig ? u.geslaagd : u.goed >= Math.ceil(items.length * 0.9);
+    if (u.apiFout) {
+      const { tekstApiFout } = await import('./proef.mjs');
+      return { ok: false, fout: tekstApiFout(u.apiFout), apiFout: u.apiFout, bijVraag: u.bijVraag, goed: 0, totaal: 0, lat: 0, valkuilFout: 0, uitslag: [] };
+    }
     return { ok, goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout, uitslag: u.uitslag };
   };
 }
@@ -134,7 +139,7 @@ export function startTaken({ vraagbaak, opslag, config }) {
     if (oud && Date.now() - Date.parse(oud.tijd) < 6 * 3_600_000 && oud.sleutel.split('|')[0] === VERSIE) return;
     const u = await maakProef({ config, volledig: true, herhaal: 3 })(vraagbaak.kb).catch((e) => ({ ok: false, fout: e.message, uitslag: [] }));
     opslag.zetStaat('proef:volledig', {
-      sleutel, tijd: new Date().toISOString(), model: config.model, instructie: INSTRUCTIE_VERSIE, geslaagd: !!u.ok, fout: u.fout || '', goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout,
+      sleutel, tijd: new Date().toISOString(), model: config.model, instructie: INSTRUCTIE_VERSIE, geslaagd: !!u.ok, fout: u.fout || '', ...(u.apiFout ? { apiFout: u.apiFout, bij_vraag: u.bijVraag } : {}), goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout,
       fouten: (u.uitslag || []).filter((x) => !x.goed).map((x) => ({ id: x.id, soort: x.soort, fouten: x.details.map((d) => d.fouten.join('; ')), antwoord: x.details[0]?.antwoord })),
     });
     opslag.log('proef', `volledige testset ${config.model}: ${u.goed}/${u.totaal}, valkuilen fout ${u.valkuilFout}`);
