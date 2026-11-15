@@ -265,3 +265,12 @@ test('besluit 443: reden van vervangen zichtbaar in de proef, nooit voor de bezo
   const u = await maakProef({ config, fetchFn: api, aantal: 1 })(kb);
   assert.equal(u.uitslag[0].details[0].diag.reden, 'bron_onbekend');
 });
+
+test('besluit 443: denken uit en ruimte voor het antwoord (Haiku 5.5 telt denktokens mee in max_tokens)', async () => {
+  const { vb, api } = opzet();
+  const t = gesprek(vb);
+  await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoi' });
+  assert.deepEqual(api.aanroepen[0].body.thinking, { type: 'disabled' });
+  assert.ok(api.aanroepen[0].body.max_tokens >= 1200);
+  assert.equal('output_config' in api.aanroepen[0].body, false, 'geen effort boven high, anders weigert de API denken uit');
+});

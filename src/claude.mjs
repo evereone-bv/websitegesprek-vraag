@@ -15,6 +15,9 @@ export async function vraagClaude({ config, kbTekst, beurten, model, fetchFn = f
   const body = {
     model,
     max_tokens: config.maxUitvoerTokens,
+    // Haiku 5.5 denkt standaard na en die denktokens tellen mee in max_tokens; dan stopt hij vóór de JSON (besluit 443).
+    // Uitzetten mag bij effort high of lager (standaard medium). Ook sneller en goedkoper; de controle doet de rest.
+    thinking: { type: 'disabled' },
     inference_geo: config.inferenceGeo,
     system: [
       { type: 'text', text: INSTRUCTIE, cache_control: { type: 'ephemeral' } },

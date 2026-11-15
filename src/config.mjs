@@ -27,7 +27,7 @@ export function laadConfig(env = process.env) {
     dataMap: env.VRAAG_DATA_DIR || '/data',
     // Grenzen (ontwerp §7, besluit 399)
     maxVraagTekens: getal('VRAAG_MAX_TEKENS', 500),
-    maxUitvoerTokens: getal('VRAAG_MAX_UITVOER', 600),
+    maxUitvoerTokens: getal('VRAAG_MAX_UITVOER', 1200),
     perTokenVragen: getal('VRAAG_PER_TOKEN', 20),
     tokenMinuten: getal('VRAAG_TOKEN_MINUTEN', 30),
     perIpUur: getal('VRAAG_PER_IP_UUR', 30),
