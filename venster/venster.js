@@ -129,7 +129,7 @@
     '#wg-vraag-venster .d button svg{width:20px;height:20px;display:block}' +
     '#wg-vraag-venster .d button[aria-pressed=true]{background:#0E1B2C;border-color:#0E1B2C;color:#F6F4EE}' +
     '#wg-vraag-venster form{display:flex;gap:8px;align-items:flex-end;padding:16px 24px;border-top:1px solid #E3DED2;margin:0}' +
-    '#wg-vraag-venster textarea{flex:1;resize:none;min-height:48px;max-height:120px;padding:12px 16px;border:1px solid #5B6775;border-radius:12px;font:inherit;color:#1B2633;background:#fff}' +
+    '#wg-vraag-venster textarea{flex:1;resize:none;min-height:48px;max-height:146px;overflow-y:auto;line-height:24px;padding:11px 16px;border:1px solid #5B6775;border-radius:12px;font:inherit;color:#1B2633;background:#fff}' +
     '#wg-vraag-venster textarea::placeholder{color:#5B6775}' +
     '#wg-vraag-venster textarea:focus-visible,#wg-vraag-venster button:focus-visible,#wg-vraag-venster a:focus-visible{outline:3px solid #0E1B2C;outline-offset:2px}' +
     '#wg-vraag-venster .k button:focus-visible{outline-color:#F2B33D}' +
@@ -253,7 +253,7 @@
       for (var i = ev.resultIndex; i !== ev.results.length; i++) {
         if (ev.results[i].isFinal) definitief += ev.results[i][0].transcript; else tussen += ev.results[i][0].transcript;
       }
-      invoer.value = (vooraf + (definitief + tussen).trim()).slice(0, 500);
+      invoer.value = (vooraf + (definitief + tussen).trim()).slice(0, 500); pasHoogteAan();
     };
     herk.onerror = function (ev) { if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed' || ev.error === 'audio-capture' || ev.error === 'language-not-supported' || ev.error === 'network') micWerktNiet(micKnop); };
     herk.onend = function () {
@@ -262,7 +262,7 @@
       micKnop.setAttribute('aria-pressed', 'false'); micKnop.setAttribute('aria-label', T.mic);
       invoer.placeholder = vorige;
       var v = definitief.trim();
-      if (v) { gesproken = true; invoer.value = (vooraf + v).slice(0, 500); }
+      if (v) { gesproken = true; invoer.value = (vooraf + v).slice(0, 500); pasHoogteAan(); }
       try { invoer.focus(); } catch (e) { /* niets */ }
     };
     try {
@@ -358,6 +358,11 @@
     }
   }
 
+  function pasHoogteAan() {
+    if (!invoer) return;
+    invoer.style.height = 'auto';
+    invoer.style.height = Math.min(invoer.scrollHeight + 2, 146) + 'px';
+  }
   var klapMelding = function () { /* wordt gezet zodra het venster er is */ };
   function stuur(tekst) {
     if (bezig) return;
@@ -423,6 +428,8 @@
     el.appendChild(lijst);
     var f = maak('form');
     invoer = maak('textarea', { rows: '1', maxlength: '500', placeholder: T.plaats, 'aria-label': T.plaats });
+    // Tekstvak groeit mee met wat je typt, tot 5 regels; daarna scrollt het (Raymond 15 nov 10:24).
+    invoer.oninput = pasHoogteAan;
     knop = maak('button', { type: 'submit', class: 's' }, T.stuur);
     invoer.disabled = true; knop.disabled = true;
     var mic = null;
@@ -445,7 +452,7 @@
     // Open zwevende WhatsApp-kaart sluiten zodra het venster opent (één ding tegelijk in beeld).
     var zw = document.querySelector('details.wg-zweef'); if (zw) zw.open = false;
     el.appendChild(t);
-    f.onsubmit = function (ev) { ev.preventDefault(); var v = invoer.value; invoer.value = ''; stuur(v); };
+    f.onsubmit = function (ev) { ev.preventDefault(); var v = invoer.value; invoer.value = ''; pasHoogteAan(); stuur(v); };
     invoer.onkeydown = function (ev) { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); f.onsubmit(ev); } };
     el.onkeydown = function (ev) { if (ev.key === 'Escape') { stopLezen(); stopLuisteren(true); el.style.display = 'none'; } };
     document.body.appendChild(el);

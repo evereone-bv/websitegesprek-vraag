@@ -270,3 +270,11 @@ test('knop Meer/Minder duwt de laatste regel van de AI-melding niet omlaag, tikv
   assert.ok(!/\.mt\{[^}]*min-height/.test(js));
   assert.match(js, /\.mt::after\{[^}]*height:44px/);
 });
+
+test('tekstvak groeit mee tot 5 regels en wordt na versturen weer klein (Raymond 15 nov)', () => {
+  const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
+  assert.match(js, /invoer\.oninput = pasHoogteAan;/);
+  assert.match(js, /Math\.min\(invoer\.scrollHeight \+ 2, 146\)/);
+  assert.match(js, /invoer\.value = ''; pasHoogteAan\(\); stuur\(v\);/);
+  assert.match(js, /textarea\{[^}]*max-height:146px;overflow-y:auto/);
+});
