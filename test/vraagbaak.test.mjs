@@ -374,3 +374,24 @@ test('457: ook de tweede keer zonder bron → doorverwijzing, niet vaker dan é�
   assert.equal(api.aantal(), 2);
   assert.equal(r.doorverwezen, true);
 });
+
+test('besluit 455 (voorwaarde Juridisch): Engelse AI-melding boven het eerste anderstalige antwoord, één keer per gesprek', async () => {
+  const MELDING = 'You are chatting with an AI assistant (Claude). Answers may contain mistakes; what counts is our website and our terms in Dutch.';
+  const { vb } = opzet();
+  const t = gesprek(vb);
+  const nl = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Kan ik het eerst proberen?' });
+  assert.ok(!nl.antwoord.startsWith(MELDING), 'Nederlandse vraag: geen melding');
+  const en1 = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Can I try it for free first?' });
+  assert.ok(en1.antwoord.startsWith(MELDING + '\n\n'), en1.antwoord);
+  const en2 = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'How do I cancel my subscription?' });
+  assert.ok(!en2.antwoord.startsWith(MELDING), 'tweede Engelse vraag: niet nog eens');
+  // De melding gaat niet mee in de gespreksgeschiedenis voor het model.
+  const t2 = gesprek(vb, '10.0.0.3');
+  const api = nepApi(); const o = opzet({}, api);
+  const t3 = gesprek(o.vb);
+  await o.vb.vraag({ ip: '10.0.0.1', tokenWaarde: t3.token, vraagTekst: 'Can I try it for free first?' });
+  await o.vb.vraag({ ip: '10.0.0.1', tokenWaarde: t3.token, vraagTekst: 'And how do I cancel?' });
+  const laatste = api.aanroepen.filter((a) => /messages/.test(a.url)).at(-1);
+  assert.ok(!JSON.stringify(laatste.body.messages).includes('You are chatting with an AI assistant'));
+  assert.ok(t2.token);
+});

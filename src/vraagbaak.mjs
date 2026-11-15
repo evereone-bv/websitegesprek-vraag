@@ -7,6 +7,7 @@ import { kennisbankAlsTekst, bouwKennisbank } from './kennisbank.mjs';
 import { INSTRUCTIE_VERSIE } from './instructie.mjs';
 import { geheim as haalGeheim, ipHash, maakPuzzel, controleerPuzzel, nieuwToken, antwoordId } from './beveiliging.mjs';
 
+export const MELDING_EN_TEKST = 'You are chatting with an AI assistant (Claude). Answers may contain mistakes; what counts is our website and our terms in Dutch.';
 const UUR = 3_600_000;
 const DAG = 24 * UUR;
 // VA3 (Juridisch 14 nov): tellers met een IP-code verlopen ruim binnen 24 uur (opruimen draait elke 5 minuten).
@@ -125,6 +126,10 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     nl: 'Geef je antwoord opnieuw, maar onderbouw het met citaten uit de pagina\'s van websitegesprek.nl. Staat het niet op de pagina\'s, zeg dan dat je het niet zeker weet.',
     en: 'Give your answer again, but support it with citations from the websitegesprek.nl pages. If it is not on the pages, say that you are not sure.'
   };
+  // Besluit 455, voorwaarde Juridisch 15 nov (1.2.3): het venster is altijd Nederlands; is de vraag niet in het Nederlands,
+  // dan staat deze vaste zin boven het eerste antwoord in die taal, zodat ook wie geen Nederlands leest weet dat het een AI is.
+  const MELDING_EN = MELDING_EN_TEKST;
+
   async function vraag({ ip, tokenWaarde, vraagTekst, pagina }) {
     const t0 = klok();
     const s = status();
@@ -188,6 +193,9 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
 
     const id = antwoordId();
     const nieuw = [...berichten, { role: 'assistant', content: uitkomst.antwoord }].slice(-12);
+    // Eerste niet-Nederlandse vraag in dit gesprek: vaste AI-melding erboven (niet in de beurten voor het model).
+    const eerderAnderstalig = beurten.some((b) => b.role === 'user' && taalVan(String(b.content || '')) !== 'nl');
+    if (taal !== 'nl' && !eerderAnderstalig) uitkomst = { ...uitkomst, antwoord: MELDING_EN + '\n\n' + uitkomst.antwoord };
     opslag.db.prepare('UPDATE gesprek SET vragen = vragen + 1, beurten = ? WHERE token = ?').run(JSON.stringify(nieuw), g.token);
     const paginaPad = (() => { try { const u = new URL(String(pagina || '')); return u.hostname === 'websitegesprek.nl' ? u.pathname : ''; } catch { return ''; } })();
     opslag.db.prepare(`INSERT INTO register (id, tijd, pagina, vraag, antwoord, bron, onderwerp, zeker, doorverwezen, vervangen, reden, kb_versie, model, kosten_milli_cent, taal, duur_ms)

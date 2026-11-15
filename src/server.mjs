@@ -108,7 +108,10 @@ export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = t
       if (!g.token) { const pz = vb.puzzel({ ip }); g.token = vb.token({ ip, uitdaging: pz.uitdaging, oplossing: losPuzzelOp(pz.uitdaging, pz.bits) }).token; }
       const r = await vb.vraag({ ip, tokenWaarde: g.token, vraagTekst: vraag, pagina: 'https://websitegesprek.nl/proef' });
       const reg = tijdelijk.db.prepare('SELECT onderwerp FROM register WHERE id = ?').get(r.id || '');
-      return { ...r, buiten: reg?.onderwerp === 'buiten_onderwerp' };
+      // Besluit 455: de vaste Engelse AI-melding hoort er bewust boven; de beoordelaar kijkt alleen naar het antwoord zelf.
+      const { MELDING_EN_TEKST } = await import('./vraagbaak.mjs');
+      const antwoord = String(r.antwoord || '').startsWith(MELDING_EN_TEKST + '\n\n') ? String(r.antwoord).slice(MELDING_EN_TEKST.length + 2) : r.antwoord;
+      return { ...r, antwoord, buiten: reg?.onderwerp === 'buiten_onderwerp' };
     }, { items, herhaalValkuilen: herhaal, beoordelaar });
     if (u.apiFout) return { ok: false, denken: variant, fout: tekstApiFout(u.apiFout), apiFout: u.apiFout, bijVraag: u.bijVraag, goed: 0, totaal: 0, lat: 0, valkuilFout: 0, uitslag: [] };
     const ok = volledig ? u.geslaagd : u.goed >= Math.ceil(items.length * 0.9);
