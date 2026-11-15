@@ -49,7 +49,7 @@ export async function draaiTestset(vraagFn, { items, herhaalValkuilen = 3, filte
         if (u?.apiFout) return { totaal: 0, goed: 0, lat: 0, valkuilFout: 0, geslaagd: false, apiFout: u.apiFout, bijVraag: item.id, uitslag };
       }
       const b = beoordeel(item, u);
-      details.push({ antwoord: u.antwoord, bron: u.bron, fouten: b.fouten });
+      details.push({ antwoord: u.antwoord, bron: u.bron, fouten: b.fouten, ...(u.diag ? { diag: u.diag } : {}) });
       if (!b.goed) allesGoed = false;
     }
     uitslag.push({ id: item.id, soort: item.soort, goed: allesGoed, details });

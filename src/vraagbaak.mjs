@@ -158,6 +158,8 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
       kostenMilliCent = boekKosten(kostenDollar(gebruiktModel, r.usage));
       controleerPiek();
       uitkomst = controleer(parseModelUitvoer(r.tekst), kb, { taal, kbTekst });
+      // Alleen voor de proef (besluit 443): waarom een antwoord is vervangen; de server stuurt dit nooit naar de bezoeker.
+      if (uitkomst.vervangen || uitkomst.doorverwezen) uitkomst.diag = { reden: uitkomst.reden || '', stop: r.stop || '', ruw: String(r.tekst || '').slice(0, 400) };
     } catch (e) {
       boekApi(false);
       if (e instanceof ApiFout && (e.soort === 'sleutel' || e.soort === 'tegoed')) zetUit(e.soort === 'sleutel' ? 'sleutelfout' : 'tegoed');
@@ -175,7 +177,7 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       id, t0, paginaPad, schoon, uitkomst.antwoord, uitkomst.bron, uitkomst.onderwerp, uitkomst.zeker ? 1 : 0,
       uitkomst.doorverwezen ? 1 : 0, uitkomst.vervangen ? 1 : 0, uitkomst.reden || '', kb?.versie || '', gebruiktModel, kostenMilliCent, taal, klok() - t0);
-    return { id, antwoord: uitkomst.antwoord, bron: uitkomst.bron, doorverwezen: !!uitkomst.doorverwezen, nl_geldt: taal !== 'nl', ...(uitkomst.apiDetail ? { apiFout: uitkomst.apiDetail } : {}) };
+    return { id, antwoord: uitkomst.antwoord, bron: uitkomst.bron, doorverwezen: !!uitkomst.doorverwezen, nl_geldt: taal !== 'nl', ...(uitkomst.apiDetail ? { apiFout: uitkomst.apiDetail } : {}), ...(uitkomst.diag ? { diag: uitkomst.diag } : {}) };
   }
 
   function duim({ ip, tokenWaarde, id, waarde }) {

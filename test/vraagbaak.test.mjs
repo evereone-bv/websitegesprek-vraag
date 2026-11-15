@@ -258,3 +258,10 @@ test('besluit 443: geen temperature in de aanroep (Haiku 5.5 weigert die met een
   await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoi' });
   assert.equal('temperature' in api.aanroepen[0].body, false);
 });
+
+test('besluit 443: reden van vervangen zichtbaar in de proef, nooit voor de bezoeker', async () => {
+  const api = nepApi({ uitvoer: { ...GOED, bron_url: 'https://elders.nl/' } });
+  const config = laadConfig({ VRAAG_ACTIEF: '1', ANTHROPIC_API_KEY: 'sk-ant-test-' + 'x'.repeat(30), VRAAG_DATA_DIR: ':memory:' });
+  const u = await maakProef({ config, fetchFn: api, aantal: 1 })(kb);
+  assert.equal(u.uitslag[0].details[0].diag.reden, 'bron_onbekend');
+});
