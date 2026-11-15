@@ -458,10 +458,11 @@
       if (!r) return terugval(T.mislukt);
       if (!r.aan) return terugval(T.uit);
       invoer.disabled = false; knop.disabled = false; invoer.focus();
-      // Microfoon alleen na akkoord Juridisch (blok op de site data-spraak="1", of VRAAG_SPRAAK=1 op de server) of voor de proef met ?vraagbaak=test.
+      // Microfoon alleen na akkoord Juridisch (blok op de site data-spraak="1", of VRAAG_SPRAAK=1 op de server). De testlink ?vraagbaak=test
+      // toont het venster zoals bezoekers het zien, dus zonder microfoon (Raymond 15 nov 09:27); proberen kan met &spraak=1.
       var blok = document.getElementById('wg-vraag-blok');
       var spraakAan = r.spraak || (blok ? blok.getAttribute('data-spraak') === '1' : false);
-      if (mic && !micUitGezet() && (spraakAan || location.search.indexOf('vraagbaak=test') > -1)) { mic.hidden = false; mic.disabled = false; spraakRegel.hidden = false; }
+      if (mic && !micUitGezet() && (spraakAan || location.search.indexOf('spraak=1') > -1)) { mic.hidden = false; mic.disabled = false; spraakRegel.hidden = false; }
     });
   }
 

@@ -53,7 +53,8 @@ test('besluit 409: microfoon alleen bij spraak van de server of de testlink, voo
   const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
   assert.match(js, /window\.SpeechRecognition \|\| window\.webkitSpeechRecognition/);
   assert.match(js, /var spraakAan = r\.spraak \|\| \(blok \? blok\.getAttribute\('data-spraak'\) === '1' : false\);/);
-  assert.match(js, /spraakAan \|\| location\.search\.indexOf\('vraagbaak=test'\)/);
+  assert.match(js, /spraakAan \|\| location\.search\.indexOf\('spraak=1'\)/);
+  assert.ok(!/spraakAan \|\| location\.search\.indexOf\('vraagbaak=test'\)/.test(js), 'testlink toont geen microfoon (Raymond 15 nov)');
   assert.match(js, /mic\.hidden = true; mic\.disabled = true;/);
   assert.match(js, /speechSynthesis/);
   // Geen opname of verzending van geluid door ons: geen MediaRecorder of getUserMedia.

@@ -63,4 +63,4 @@ Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
 
 1. Pas na akkoord van Juridisch.
 2. Werkbon op websitegesprek.nl: in het zwevende kaartje `data-spraak="0"` vervangen door `data-spraak="1"` (staat naast `data-aan`).
-3. Zonder akkoord is de knop alleen te zien met `?vraagbaak=test`. Voorlezen staat altijd aan en vraagt niets.
+3. Zonder akkoord is de knop alleen te zien met `?vraagbaak=test&spraak=1`. De gewone testlink toont het venster zoals bezoekers het zien, zonder microfoon. Voorlezen is vervallen (besluit 456).
