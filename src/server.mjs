@@ -62,7 +62,11 @@ export function maakServer({ env = process.env, config = laadConfig(env), opslag
       return stuur(200, { ok: true, versie: VERSIE, sinds: START, sleutel_gezet: sleutelGezet(env), ...vb.gezondheid() });
     }
     if (req.method === 'GET' && url.pathname === '/proef') {
-      return stuur(200, opslag.staat('proef:volledig', { nog_niet_gedraaid: true }));
+      // Besluit 480 (V18.1): servervragen (uit bezoekersvragen) zonder tekst tonen.
+      const { laadTestset, verbergServerVragen } = await import('./proef.mjs');
+      let ids = new Set();
+      try { ids = new Set(laadTestset().items.filter((i) => i.server).map((i) => i.id)); } catch { /* geen servertestset */ }
+      return stuur(200, verbergServerVragen(opslag.staat('proef:volledig', { nog_niet_gedraaid: true }), ids));
     }
     if (req.method === 'GET' && url.pathname === '/v1/venster.js') {
       res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=300', 'X-Content-Type-Options': 'nosniff' });

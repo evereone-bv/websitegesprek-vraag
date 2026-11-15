@@ -8,6 +8,7 @@ import { laadConfig } from '../src/config.mjs';
 import {
   VELDEN, GRENZEN, sleutelGeldig, exportActief, korten, maakReeksen, onderteken, verwerkAntwoord, verstuur,
   stuurRegister, stuurProefregel, exportStatus, wisOudeRegels, wisAntwoord, kiesRegels,
+  LABEL_WISLIJST, handtekeningGeldig, WIS_MAX,
 } from '../src/doorsturen.mjs';
 
 const SLEUTEL = 'a'.repeat(64);
@@ -21,7 +22,7 @@ function cfg(extra = {}) {
 }
 let teller = 0;
 function regel(opslag, { tijd = NU - 2 * 60 * 60_000, pagina = '/', vraag = 'Wat kost het?', antwoord = 'Het kost...', duim = null, id } = {}) {
-  const nr = id || 'V-' + String(++teller).padStart(6, '0');
+  const nr = id || 'T-' + String(++teller).padStart(6, '0'); // T-: nooit een echt antwoordnummer in de repo
   opslag.db.prepare(`INSERT INTO register (id, tijd, pagina, vraag, antwoord, bron, onderwerp, zeker, doorverwezen, vervangen, reden, duim, kb_versie, model, kosten_milli_cent, taal, duur_ms)
     VALUES (?, ?, ?, ?, ?, 'https://websitegesprek.nl/', 'prijs', 1, 0, 0, '', ?, 'kb1', 'claude-sonnet-5-5', 9, 'nl', 2000)`).run(nr, tijd, pagina, vraag, antwoord, duim);
   return nr;
@@ -32,7 +33,7 @@ function nepRapportage({ status = 200, antwoord = null, bewaard = new Set() } = 
   const fn = async (url, opts) => {
     const kop = opts.headers['x-wg-handtekening'];
     const [, t, v1] = kop.match(/^t=(\d+),v1=([0-9a-f]{64})$/);
-    const verwacht = createHmac('sha256', SLEUTEL).update(`${t}.${opts.body}`).digest('hex');
+    const verwacht = createHmac('sha256', SLEUTEL).update(`wg-export-v1.${t}.${opts.body}`).digest('hex');
     const body = JSON.parse(opts.body);
     verzoeken.push({ url, kop, t: Number(t), ok: verwacht === v1, body, bytes: Buffer.byteLength(opts.body) });
     const st = typeof status === 'function' ? status(verzoeken.length) : status;
@@ -55,12 +56,16 @@ test('480 S5: export alleen met adres, sleutel van 32 bytes én VRAAG_EXPORT=aan
   assert.equal(exportActief(cfg({ VRAAG_RAPPORTAGE_URL: '' })), false);
 });
 
-test('480 RV1: zonder schakelaar stuurt stuur-register niets', async () => {
+test('480 RV1: zonder schakelaar gaan er geen regels mee (alleen de wislijst wordt opgehaald); zonder sleutel niets', async () => {
   const opslag = openOpslag(':memory:'); regel(opslag);
   const api = nepRapportage();
   const r = await stuurRegister({ config: cfg({ VRAAG_EXPORT: '' }), opslag, fetchFn: api, nu: () => NU });
-  assert.deepEqual(r, { gedaan: false, reden: 'export_uit' });
-  assert.equal(api.verzoeken.length, 0);
+  assert.equal(r.export, false);
+  assert.equal(api.verzoeken.length, 1);
+  assert.deepEqual(api.verzoeken[0].body.regels, []);
+  const zonder = await stuurRegister({ config: cfg({ VRAAG_EXPORT: '', VRAAG_RAPPORTAGE_SLEUTEL: '' }), opslag, fetchFn: api, nu: () => NU });
+  assert.deepEqual(zonder, { gedaan: false, reden: 'export_uit' });
+  assert.equal(api.verzoeken.length, 1);
 });
 
 test('480 RV2: alleen de allowlist-velden, met geldige handtekening; nooit ip, token of beurten', async () => {
@@ -125,7 +130,7 @@ test('480 V6d: regels van /proef gaan nooit mee', async () => {
   const api = nepRapportage();
   const r = await stuurRegister({ config: cfg(), opslag, fetchFn: api, nu: () => NU });
   assert.equal(r.verstuurd, 0);
-  assert.equal(api.verzoeken.length, 0);
+  assert.ok(api.verzoeken.every((v) => v.body.regels.length === 0));
 });
 
 test('480 V4a: opgeslagen maar antwoord na time-out: volgende keer al_aanwezig en de cursor schuift alsnog op', async () => {
@@ -244,15 +249,105 @@ test('480 V7: install.sh zet de export-timer aan, 03:17, vóór de update van 04
   assert.match(sh, /src\/beheer\.mjs stuur-register/);
 });
 
-test('480: ondertekening is HMAC-SHA256 over "t.body"', () => {
+test('480 V20.1: ondertekening is HMAC-SHA256 over "label.t.body", met een vast label per richting', () => {
   const kop = onderteken('{"a":1}', SLEUTEL, 1700000000);
-  assert.equal(kop, `t=1700000000,v1=${createHmac('sha256', SLEUTEL).update('1700000000.{"a":1}').digest('hex')}`);
+  assert.equal(kop, `t=1700000000,v1=${createHmac('sha256', SLEUTEL).update('wg-export-v1.1700000000.{"a":1}').digest('hex')}`);
+  const w = onderteken('{"a":1}', SLEUTEL, 1700000000, LABEL_WISLIJST);
+  assert.ok(handtekeningGeldig(w, '{"a":1}', SLEUTEL, 1700000000 * 1000));
+  assert.ok(!handtekeningGeldig(kop, '{"a":1}', SLEUTEL, 1700000000 * 1000), 'label van de andere richting geweigerd');
+  assert.ok(!handtekeningGeldig(w, '{"a":2}', SLEUTEL, 1700000000 * 1000), 'andere body geweigerd');
+  assert.ok(!handtekeningGeldig(w, '{"a":1}', SLEUTEL, (1700000000 + 301) * 1000), 'buiten het venster geweigerd');
 });
 
 test('480: kiesRegels houdt (tijd, id) als cursor aan, ook bij gelijke tijd', () => {
   const opslag = openOpslag(':memory:');
   const t = NU - 2 * 3600_000;
-  regel(opslag, { tijd: t, id: 'V-AAAAA1' }); regel(opslag, { tijd: t, id: 'V-AAAAA2' });
-  const na = kiesRegels(opslag.db, { tijd: t, id: 'V-AAAAA1' }, NU);
-  assert.deepEqual(na.map((r) => r.id), ['V-AAAAA2']);
+  regel(opslag, { tijd: t, id: 'T-AAAAA1' }); regel(opslag, { tijd: t, id: 'T-AAAAA2' });
+  const na = kiesRegels(opslag.db, { tijd: t, id: 'T-AAAAA1' }, NU);
+  assert.deepEqual(na.map((r) => r.id), ['T-AAAAA2']);
+});
+
+// ---- 0.4.1: wislijst (V16, V20, H4, H6) ----
+// Nagebootst rapportage dat een wislijst teruggeeft, ondertekend met label (standaard wg-wislijst-v1).
+function rapportageMetWislijst({ lijst, label = 'wg-wislijst-v1', sleutel = SLEUTEL, tijd = () => Math.floor(NU / 1000), kop = true } = {}) {
+  const verzoeken = [];
+  const fn = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    verzoeken.push(body);
+    const ruw = JSON.stringify({ ontvangen: body.regels.length, opgeslagen: body.regels.length, al_aanwezig: 0, afgewezen: [], wislijst: lijst });
+    const t = tijd();
+    const v1 = createHmac('sha256', sleutel).update(`${label}.${t}.${ruw}`).digest('hex');
+    return new Response(ruw, { status: 200, headers: kop ? { 'x-wg-handtekening': `t=${t},v1=${v1}` } : {} });
+  };
+  fn.verzoeken = verzoeken;
+  return fn;
+}
+const NR = (s) => 'V-' + s; // opbouw in de test, zodat er geen los antwoordnummer in de broncode staat
+test('480 V16: ondertekende wislijst wist op de vraagserver, ook als de export uit staat; volgende keer gemeld (V20.3)', async () => {
+  const opslag = openOpslag(':memory:');
+  const a = NR('ABCDEF'); const b = NR('GHJKLM');
+  regel(opslag, { id: a }); regel(opslag, { id: b });
+  const api = rapportageMetWislijst({ lijst: [{ id: a, datum: '2026-11-15' }] });
+  const r = await stuurRegister({ config: cfg({ VRAAG_EXPORT: '' }), opslag, fetchFn: api, nu: () => NU });
+  assert.equal(r.gewist, 1);
+  const over = opslag.db.prepare('SELECT id FROM register').all().map((x) => x.id);
+  assert.deepEqual(over, [b]);
+  await stuurRegister({ config: cfg({ VRAAG_EXPORT: '' }), opslag, fetchFn: rapportageMetWislijst({ lijst: [] }), nu: () => NU + 60_000 });
+  // tweede run meldt het gewiste nummer, daarna is de meldlijst leeg
+  assert.equal(exportStatus({ config: cfg(), opslag, nu: NU }).wislijst.te_melden, 0);
+});
+test('480 V20.3: de vraagserver meldt welke nummers hij wiste in het eerste verzoek van de volgende run', async () => {
+  const opslag = openOpslag(':memory:');
+  const a = NR('ABCDEF'); regel(opslag, { id: a });
+  await stuurRegister({ config: cfg(), opslag, fetchFn: rapportageMetWislijst({ lijst: [a] }), nu: () => NU });
+  const tweede = rapportageMetWislijst({ lijst: [] });
+  await stuurRegister({ config: cfg(), opslag, fetchFn: tweede, nu: () => NU + 60_000 });
+  assert.deepEqual(tweede.verzoeken[0].gewist, [a]);
+});
+test('480 H6: niet of verkeerd ondertekende wislijst wordt genegeerd en alleen geteld', async () => {
+  for (const variant of [{ kop: false }, { label: 'wg-export-v1' }, { sleutel: 'b'.repeat(64) }, { tijd: () => Math.floor(NU / 1000) - 400 }]) {
+    const opslag = openOpslag(':memory:');
+    const a = NR('ABCDEF'); regel(opslag, { id: a });
+    const r = await stuurRegister({ config: cfg(), opslag, fetchFn: rapportageMetWislijst({ lijst: [a], ...variant }), nu: () => NU });
+    assert.equal(r.gewist, 0, JSON.stringify(Object.keys(variant)));
+    assert.equal(opslag.db.prepare('SELECT COUNT(*) AS n FROM register').get().n, 1);
+    assert.equal(exportStatus({ config: cfg(), opslag, nu: NU }).wislijst.genegeerd, 1);
+    const log = opslag.db.prepare("SELECT tekst FROM logboek WHERE soort = 'wissen'").all().map((x) => x.tekst).join(' ');
+    assert.ok(!log.includes(a), 'logt alleen aantallen');
+  }
+});
+test('480 V20.2: hooguit 500 nummers, elk op het vaste patroon; de rest overgeslagen en geteld', async () => {
+  const opslag = openOpslag(':memory:');
+  const lijst = ['onzin', 'X-ABCDEF', NR('ABCDE1'), ...Array.from({ length: 510 }, () => NR('ABCDEF'))];
+  const r = await stuurRegister({ config: cfg(), opslag, fetchFn: rapportageMetWislijst({ lijst }), nu: () => NU });
+  assert.equal(r.gewist, 0);
+  assert.equal(WIS_MAX, 500);
+  assert.equal(exportStatus({ config: cfg(), opslag, nu: NU }).wislijst.overgeslagen, 3 + (lijst.length - 500));
+});
+test('480 V20.2: te groot antwoord wist niets en telt als fout; volgende nacht opnieuw', async () => {
+  const opslag = openOpslag(':memory:'); const a = NR('ABCDEF'); regel(opslag, { id: a });
+  const groot = async () => new Response('x'.repeat(300 * 1024), { status: 200 });
+  const r = await stuurRegister({ config: cfg(), opslag, fetchFn: groot, nu: () => NU, wacht: geenWacht });
+  assert.equal(r.fout, 'antwoord_te_groot');
+  assert.equal(opslag.db.prepare('SELECT COUNT(*) AS n FROM register').get().n, 1);
+});
+
+// ---- 0.4.1: testvragen uit bezoekersvragen alleen op de server (V18, keuze 18.1) ----
+test('480 V18.1: servertestset draait mee, /proef toont van die vragen geen tekst', async () => {
+  const { mkdtempSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { laadTestset, verbergServerVragen, SERVER_TESTSET } = await import('../src/proef.mjs');
+  const map = mkdtempSync(join(tmpdir(), 'wg-ts-'));
+  const basis = laadTestset(map);
+  writeFileSync(join(map, SERVER_TESTSET), JSON.stringify({ items: [{ id: 's01', vraag: 'Geheime vraag van een bezoeker', soort: 'feit', verwacht: {} }] }));
+  const samen = laadTestset(map);
+  assert.equal(samen.items.length, basis.items.length + 1);
+  assert.notEqual(samen.versie, basis.versie, 'versie verandert, dus de testset draait opnieuw');
+  assert.equal(samen.items.at(-1).server, true);
+  const uitslag = { varianten: [{ resultaten: [{ id: 's01', vraag: 'Geheime vraag van een bezoeker', antwoord: 'x', goed: true }, { id: 'f01', vraag: 'Wat kost het?', goed: true }] }] };
+  const open = verbergServerVragen(uitslag, new Set(['s01']));
+  assert.ok(!JSON.stringify(open).includes('Geheime vraag'));
+  assert.deepEqual(open.varianten[0].resultaten[0], { id: 's01', server: true, goed: true });
+  assert.equal(open.varianten[0].resultaten[1].vraag, 'Wat kost het?');
 });
