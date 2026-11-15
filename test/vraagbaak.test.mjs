@@ -295,7 +295,7 @@ test('besluit 447: nadenken low (adaptief, effort low, ruim max_tokens) of uit',
   const { vb: vb2, api: api2 } = opzet({ VRAAG_DENKEN: 'uit' });
   const t2 = gesprek(vb2);
   await vb2.vraag({ ip: '10.0.0.1', tokenWaarde: t2.token, vraagTekst: 'Hoi' });
-  assert.deepEqual(api2.aanroepen[0].body.thinking, { type: 'disabled' });
+  assert.deepEqual(api2.aanroepen[0].body.thinking, { type: 'between_tools' }, 'Sonnet: nadenken uit = between_tools (467-reparatie)');
   assert.equal('output_config' in api2.aanroepen[0].body, false, 'geen effort boven high, anders weigert de API denken uit');
 });
 
@@ -461,4 +461,21 @@ test('besluit 467: vraag gaat naar het model dat de testset koos; Haiku alleen b
   assert.equal(c.terugvalModel, 'claude-haiku-5-5');
   assert.equal(c.beoordelaarModel, 'claude-opus-5-5');
   assert.deepEqual(c.testModellen, ['claude-sonnet-5-5', 'claude-haiku-5-5']);
+});
+
+test('467-reparatie: nadenken uit = between_tools voor Sonnet, disabled voor Haiku', async () => {
+  const { denkInstelling } = await import('../src/claude.mjs');
+  assert.deepEqual(denkInstelling('uit', 600, 'claude-sonnet-5-5').thinking, { type: 'between_tools' });
+  assert.deepEqual(denkInstelling('uit', 600, 'claude-haiku-5-5').thinking, { type: 'disabled' });
+  assert.equal(denkInstelling('low', 600, 'claude-sonnet-5-5').thinking.type, 'adaptive');
+});
+
+test('467-reparatie: proef heeft geen kostenplafond, telt verbruik en stopt zichtbaar als de vraagbaak uit staat', async () => {
+  const api = nepApi({ usage: { input_tokens: 50, cache_creation_input_tokens: 0, cache_read_input_tokens: 28000, output_tokens: 300 } });
+  const config = laadConfig({ VRAAG_ACTIEF: '1', ANTHROPIC_API_KEY: 'sk-ant-test-' + 'x'.repeat(30), VRAAG_DATA_DIR: ':memory:', VRAAG_PLAFOND_UUR: '0.0001' });
+  const u = await maakProef({ config, fetchFn: api, aantal: 3 })(kb);
+  assert.equal(u.totaal, 3, 'ondanks een piepklein plafond draaien alle vragen');
+  assert.ok(u.kosten.aanroepen >= 3);
+  assert.equal(u.kosten.cache_lees, 28000 * u.kosten.aanroepen);
+  assert.ok(u.kosten.euro_per_vraag > 0);
 });
