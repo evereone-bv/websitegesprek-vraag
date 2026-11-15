@@ -53,7 +53,8 @@ test('besluit 409: microfoon alleen bij spraak van de server of de testlink, voo
   const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
   assert.match(js, /window\.SpeechRecognition \|\| window\.webkitSpeechRecognition/);
   assert.match(js, /var spraakAan = r\.spraak \|\| \(blok \? blok\.getAttribute\('data-spraak'\) === '1' : false\);/);
-  assert.match(js, /spraakAan \|\| location\.search\.indexOf\('vraagbaak=test'\)/);
+  assert.match(js, /spraakAan \|\| location\.search\.indexOf\('spraak=1'\)/);
+  assert.ok(!/spraakAan \|\| location\.search\.indexOf\('vraagbaak=test'\)/.test(js), 'testlink toont geen microfoon (Raymond 15 nov)');
   assert.match(js, /mic\.hidden = true; mic\.disabled = true;/);
   assert.match(js, /speechSynthesis/);
   // Geen opname of verzending van geluid door ons: geen MediaRecorder of getUserMedia.
@@ -261,4 +262,11 @@ test('AI-melding (V1): eerste zin altijd zichtbaar, rest klapt in na de eerste v
   assert.ok(!/\.m\.dicht \.mkort\{display:none\}/.test(js), 'de eerste zin (je praat met een AI) verdwijnt nooit');
   assert.match(js, /bezig = true; knop\.disabled = true;\n\s*klapMelding\(false\);/);
   assert.match(js, /'aria-expanded': 'true'/);
+});
+
+test('knop Meer/Minder duwt de laatste regel van de AI-melding niet omlaag, tikvlak blijft 44 px', () => {
+  const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
+  assert.match(js, /\.mt\{position:relative;display:inline;/);
+  assert.ok(!/\.mt\{[^}]*min-height/.test(js));
+  assert.match(js, /\.mt::after\{[^}]*height:44px/);
 });
