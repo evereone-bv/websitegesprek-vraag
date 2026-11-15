@@ -23,12 +23,17 @@ websitegesprek.nl  vast blok (venster/blok-websitegesprek.html), laadt niets tot
    /proberen/; schone tekst, menu/footer één keer. Nieuwe versie pas actief na een proef van 10 vragen (als de
    vraagbaak aan staat) en niet bij een grote wijziging (>40%). Lukt ophalen niet (bijv. botcontrole van de hosting),
    dan blijft de vorige versie; zonder kennisbank wordt `kennisbank/snapshot.json` gebruikt.
-2. **Antwoord** (`src/claude.mjs`, `src/instructie.mjs`): hele kennisbank in elke vraag, als cache-blok; geen tools;
-   `inference_geo: "us"`. Het model geeft JSON met antwoord, bron, letterlijk citaat en onderwerp.
-3. **Controle in code** (`src/controle.mjs`): bron moet bestaan, citaat letterlijk op die pagina (verplicht bij prijs,
-   proef, opzeggen, privacy, voorwaarden), elk getal met eenheid moet in de kennisbank staan, geen valuta omrekenen,
-   risicowoorden (korting, garantie, geld terug…) alleen als de bronpagina ze zelf noemt, links eruit. Faalt iets:
-   doorverwijzing naar WhatsApp/mail. Engels + juridisch/prijs: zin dat de Nederlandse tekst geldt (VB7).
+2. **Antwoord** (`src/claude.mjs`, `src/instructie.mjs`, besluit 447): elke pagina als `search_result`-blok met
+   citations aan, in de cache; geen tools; `inference_geo: "us"`. Het antwoord is gewone tekst; de API haalt de
+   citaten zelf letterlijk uit de pagina's (Anthropic "Search results" en "Citations"; die gaan niet samen met
+   structured outputs). Vaste codes `[DOORVERWIJZEN]` en `[BUITEN_ONDERWERP]` → vaste teksten uit de code.
+   Nadenken: `low` (adaptief) of `uit`; de volledige testset draait beide en kiest.
+3. **Controle in code** (`src/controle.mjs`): zonder bronvermelding geen antwoord, elke bron moet een pagina van de
+   kennisbank zijn, elk getal met eenheid moet in de kennisbank staan, geen valuta omrekenen, risicowoorden (korting,
+   garantie, geld terug…) alleen als een geciteerde pagina ze zelf noemt, links eruit. Faalt iets: doorverwijzing naar
+   WhatsApp/mail. Anderstalig: zin dat de Nederlandse tekst geldt (VB7).
+   **Testset** (`testset/testset.json`, `src/proef.mjs`, `src/beoordelaar.mjs`, besluit 448): harde codecontroles plus
+   een vaste AI-beoordelaar (Sonnet 5.5, structured outputs) die juist, gegrond, beantwoordt en geen toezegging toetst.
 4. **Grenzen en uitzetten** (`src/vraagbaak.mjs`): per gesprek, per IP-hash (dagelijks wisselend zout), per server;
    €2/uur en €8/dag (tijdelijk, vanzelf weer aan); blijvend uit bij sleutel-/tegoedfout, >20% API-fouten in 15 min,
    kostenpiek of rode dagelijkse proef; weer aan alleen na akkoord (`node src/beheer.mjs aan`).

@@ -1,5 +1,6 @@
 // Controle van elk antwoord in code (ontwerp §4.5, V3, VB7). Faalt er iets, dan krijgt de bezoeker de doorverwijzing.
 import { normaliseer, vindPagina } from './kennisbank.mjs';
+import { CODE_DOORVERWIJZEN, CODE_BUITEN } from './instructie.mjs';
 
 export const STRIKTE_ONDERWERPEN = ['prijs', 'proef', 'opzeggen', 'privacy', 'voorwaarden'];
 
@@ -13,6 +14,10 @@ export const RISICOWOORDEN = [
 export const DOORVERWIJZING = {
   nl: 'Dat weet ik niet zeker genoeg om je goed te helpen. Vraag het ons via WhatsApp of mail, dan krijg je persoonlijk antwoord.',
   en: "I'm not sure enough to answer that well. Ask us via WhatsApp or email and you'll get a personal answer.",
+};
+export const BUITEN = {
+  nl: 'Ik beantwoord alleen vragen over Websitegesprek, op basis van de informatie op deze website. Waar kan ik je daarmee helpen?',
+  en: 'I only answer questions about Websitegesprek, based on the information on this website. How can I help you with that?',
 };
 export const NL_GELDT = {
   nl: '',
@@ -40,60 +45,58 @@ export function getallenMetEenheid(tekst) {
   return uit;
 }
 
-export function parseModelUitvoer(tekst) {
-  const s = String(tekst || '').trim();
-  const begin = s.indexOf('{');
-  const eind = s.lastIndexOf('}');
-  if (begin < 0 || eind <= begin) return null;
-  try {
-    const o = JSON.parse(s.slice(begin, eind + 1));
-    return typeof o === 'object' && o ? o : null;
-  } catch { return null; }
-}
-
 function verwijderLinks(t) {
   return t.replace(/https?:\/\/\S+/gi, '').replace(/\bwww\.\S+/gi, '').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1');
 }
 
+// Onderwerp voor het register, afgeleid van de geciteerde pagina (besluit 447: het model geeft geen JSON meer).
+export function onderwerpVan(url) {
+  try { const pad = new URL(url).pathname.replace(/\//g, ''); return pad || 'algemeen'; } catch { return 'overig'; }
+}
+
+// Controle van één antwoord {tekst, citaties:[{bron, tekst}]} (besluit 447). De citaten zijn door de API letterlijk uit de
+// pagina's gehaald; de code controleert nog wat de API niet doet: bron op onze site, getallen, valuta, risicowoorden, lengte.
 export function controleer(uitvoer, kb, { taal = 'nl', kbTekst, maxTekens = 700 } = {}) {
   const t = taal === 'en' ? 'en' : 'nl';
-  const doorverwijzing = (reden, bron = null) => ({ ok: false, vervangen: true, reden, antwoord: DOORVERWIJZING[t], bron: bron || 'https://websitegesprek.nl/contact/', onderwerp: uitvoer?.onderwerp || 'onbekend', zeker: false, doorverwezen: true });
-  if (!uitvoer) return doorverwijzing('geen_json');
-  const onderwerp = String(uitvoer.onderwerp || 'overig').toLowerCase();
-  if (uitvoer.buiten_onderwerp === true) {
-    // Vaste vriendelijke weigertekst uit de instructie; wel controleren op lengte en links.
-    const a = verwijderLinks(String(uitvoer.antwoord || '')).trim();
-    if (!a || a.length > maxTekens) return doorverwijzing('buiten_onderwerp_vorm');
-    return { ok: true, vervangen: false, reden: '', antwoord: a, bron: 'https://websitegesprek.nl/', onderwerp: 'buiten_onderwerp', zeker: true, doorverwezen: false };
-  }
-  if (uitvoer.zeker === false) return { ...doorverwijzing('niet_zeker', vindPagina(kb, uitvoer.bron_url)?.url), ok: true, vervangen: false };
+  const doorverwijzing = (reden, bron = null) => ({ ok: false, vervangen: true, reden, antwoord: DOORVERWIJZING[t], bron: bron || 'https://websitegesprek.nl/contact/', onderwerp: 'onbekend', zeker: false, doorverwezen: true });
+  const ruw = String(uitvoer?.tekst || '').trim();
+  if (!ruw) return doorverwijzing('leeg');
+  if (ruw.includes(CODE_BUITEN)) return { ok: true, vervangen: false, reden: '', antwoord: BUITEN[t], bron: 'https://websitegesprek.nl/', onderwerp: 'buiten_onderwerp', zeker: true, doorverwezen: false };
+  if (ruw.includes(CODE_DOORVERWIJZEN)) return { ...doorverwijzing('niet_zeker'), ok: true, vervangen: false };
 
-  let antwoord = verwijderLinks(String(uitvoer.antwoord || '')).replace(/\s+\n/g, '\n').trim();
-  if (!antwoord) return doorverwijzing('leeg');
+  let antwoord = verwijderLinks(ruw).replace(/[*_#`]/g, '').replace(/\s+\n/g, '\n').trim();
   if (antwoord.length > maxTekens) return doorverwijzing('te_lang');
 
-  const pagina = vindPagina(kb, uitvoer.bron_url);
-  if (!pagina) return doorverwijzing('bron_onbekend');
-  const paginaNorm = normaliseer(pagina.tekst + '\n' + (kb.algemeen || ''));
-
-  const citaat = String(uitvoer.citaat || '').trim();
-  if (STRIKTE_ONDERWERPEN.includes(onderwerp) && citaat.length < 8) return doorverwijzing('citaat_ontbreekt', pagina.url);
-  if (citaat && !paginaNorm.includes(normaliseer(citaat))) return doorverwijzing('citaat_niet_op_pagina', pagina.url);
+  // Elke geciteerde bron moet een pagina van onze kennisbank zijn; zonder bronvermelding geen antwoord.
+  const citaties = (uitvoer?.citaties || []).filter((c) => c && c.bron);
+  if (!citaties.length) return doorverwijzing('geen_bronvermelding');
+  const paginas = [];
+  for (const c of citaties) {
+    const p = vindPagina(kb, c.bron);
+    if (!p) return doorverwijzing('bron_onbekend');
+    if (!paginas.includes(p)) paginas.push(p);
+  }
+  // Bron voor de bezoeker: de pagina die het vaakst is geciteerd (de algemene gegevens tellen als de homepage).
+  const telling = new Map();
+  for (const c of citaties) { const u = vindPagina(kb, c.bron).url; telling.set(u, (telling.get(u) || 0) + 1); }
+  const bron = [...telling.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const paginaNorm = normaliseer(paginas.map((p) => p.tekst).join('\n') + '\n' + (kb.algemeen || ''));
 
   // Alle getallen met eenheid uit het antwoord moeten in de kennisbank staan (VB7: niet omrekenen).
   const kbGetallen = getallenMetEenheid(kbTekst || '');
   for (const g of getallenMetEenheid(antwoord)) {
-    if (g.startsWith('$')) return doorverwijzing('valuta', pagina.url);
-    if (!kbGetallen.has(g)) return doorverwijzing('getal_niet_in_kennisbank:' + g, pagina.url);
+    if (g.startsWith('$')) return doorverwijzing('valuta', bron);
+    if (!kbGetallen.has(g)) return doorverwijzing('getal_niet_in_kennisbank:' + g, bron);
   }
 
+  // Risicowoorden alleen als een geciteerde pagina ze zelf gebruikt.
   const antwoordNorm = normaliseer(antwoord);
   for (const w of RISICOWOORDEN) {
-    if (antwoordNorm.includes(w) && !paginaNorm.includes(w)) return doorverwijzing('risicowoord:' + w, pagina.url);
+    if (antwoordNorm.includes(w) && !paginaNorm.includes(w)) return doorverwijzing('risicowoord:' + w, bron);
   }
 
-  // VB7: anderstalig + juridisch/prijs-onderwerp → zin dat de Nederlandse tekst geldt.
-  if (t !== 'nl' && STRIKTE_ONDERWERPEN.includes(onderwerp) && !antwoord.includes(NL_GELDT[t])) antwoord += ' ' + NL_GELDT[t];
+  // VB7: anderstalig antwoord → zin dat de Nederlandse tekst geldt.
+  if (t !== 'nl' && !antwoord.includes(NL_GELDT[t])) antwoord += ' ' + NL_GELDT[t];
 
-  return { ok: true, vervangen: false, reden: '', antwoord, bron: pagina.url, onderwerp, zeker: true, doorverwezen: false };
+  return { ok: true, vervangen: false, reden: '', antwoord, bron, onderwerp: onderwerpVan(bron), zeker: true, doorverwezen: false };
 }

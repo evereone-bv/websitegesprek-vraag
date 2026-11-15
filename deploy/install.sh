@@ -76,7 +76,7 @@ ExecStop=/usr/bin/docker stop -t 10 vraag
 WantedBy=multi-user.target
 UNIT
 
-echo "== Wekelijks bijwerken (zondag 04:37): code uit GitHub, nieuwste basis-image, herstart"
+echo "== Dagelijks bijwerken (04:37, besluit 449): code uit GitHub, nieuwste basis-image, herstart"
 cat > /etc/systemd/system/vraag-update.service <<UNIT
 [Unit]
 Description=Vraagbaak bijwerken
@@ -87,9 +87,9 @@ ExecStart=/bin/bash -c 'git fetch -q origin && git reset -q --hard origin/main &
 UNIT
 cat > /etc/systemd/system/vraag-update.timer <<'UNIT'
 [Unit]
-Description=Vraagbaak wekelijks bijwerken
+Description=Vraagbaak dagelijks bijwerken (besluit 449)
 [Timer]
-OnCalendar=Sun *-*-* 04:37:00
+OnCalendar=*-*-* 04:37:00
 Persistent=true
 [Install]
 WantedBy=timers.target

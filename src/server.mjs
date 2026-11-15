@@ -87,15 +87,20 @@ export function maakServer({ env = process.env, config = laadConfig(env), opslag
   return { server, vraagbaak: vb, opslag, config };
 }
 
-// Proef met een kandidaat-kennisbank: 10 feitvragen in een aparte, tijdelijke opslag (ontwerp §4.3).
-export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = true, herhaal = 1, volledig = false }) {
+// Proef met een kandidaat-kennisbank in een aparte, tijdelijke opslag (ontwerp §4.3). Besluit 448: met de vaste
+// beoordelaar. Besluit 447: 'denken' zet de variant vast ('low' of 'uit'); standaard de variant die de testset koos.
+export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = true, herhaal = 1, volledig = false, denken = null, opslagLive = null }) {
   return async (kandidaat) => {
-    const { draaiTestset, laadTestset } = await import('./proef.mjs');
+    const { draaiTestset, laadTestset, tekstApiFout } = await import('./proef.mjs');
     const { losPuzzelOp } = await import('./beveiliging.mjs');
-    const cfg = { ...config, modus: 'aan', perIpUur: 1e6, perIpDag: 1e6, perTokenVragen: 1e6, tokensPerIpUur: 1e6, puzzelBits: 2 };
+    const { maakBeoordelaar } = await import('./beoordelaar.mjs');
+    const { kennisbankAlsTekst } = await import('./kennisbank.mjs');
+    const variant = denken || opslagLive?.staat('proef:volledig', null)?.gekozen || config.denken;
+    const cfg = { ...config, modus: 'aan', denkenVast: variant, perIpUur: 1e6, perIpDag: 1e6, perTokenVragen: 1e6, tokensPerIpUur: 1e6, puzzelBits: 2 };
     const tijdelijk = openOpslag(':memory:');
     const vb = maakVraagbaak({ config: cfg, opslag: tijdelijk, fetchFn });
     vb.zetKennisbank(kandidaat, true);
+    const beoordelaar = maakBeoordelaar({ config: cfg, kbTekst: kennisbankAlsTekst(kandidaat), fetchFn });
     const alle = laadTestset().items;
     const items = volledig ? alle : alle.filter((i) => !alleenFeit || i.soort === 'feit').slice(0, aantal);
     const ip = '127.0.0.8';
@@ -104,19 +109,26 @@ export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = t
       const r = await vb.vraag({ ip, tokenWaarde: g.token, vraagTekst: vraag, pagina: 'https://websitegesprek.nl/proef' });
       const reg = tijdelijk.db.prepare('SELECT onderwerp FROM register WHERE id = ?').get(r.id || '');
       return { ...r, buiten: reg?.onderwerp === 'buiten_onderwerp' };
-    }, { items, herhaalValkuilen: herhaal });
+    }, { items, herhaalValkuilen: herhaal, beoordelaar });
+    if (u.apiFout) return { ok: false, denken: variant, fout: tekstApiFout(u.apiFout), apiFout: u.apiFout, bijVraag: u.bijVraag, goed: 0, totaal: 0, lat: 0, valkuilFout: 0, uitslag: [] };
     const ok = volledig ? u.geslaagd : u.goed >= Math.ceil(items.length * 0.9);
-    if (u.apiFout) {
-      const { tekstApiFout } = await import('./proef.mjs');
-      return { ok: false, fout: tekstApiFout(u.apiFout), apiFout: u.apiFout, bijVraag: u.bijVraag, goed: 0, totaal: 0, lat: 0, valkuilFout: 0, uitslag: [] };
-    }
-    return { ok, goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout, uitslag: u.uitslag };
+    return { ok, denken: variant, goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout, gemDuurMs: u.gemDuurMs, uitslag: u.uitslag };
   };
+}
+
+// Besluit 447: kies de nadenk-variant. Alleen geslaagde varianten tellen; dan de meeste goed, bij gelijkspel de snelste.
+export function kiesVariant(varianten) {
+  const lijst = Object.entries(varianten).filter(([, v]) => v && !v.fout);
+  const geslaagd = lijst.filter(([, v]) => v.geslaagd);
+  const pool = geslaagd.length ? geslaagd : lijst;
+  if (!pool.length) return null;
+  pool.sort((a, b) => (b[1].goed - a[1].goed) || (a[1].gemDuurMs - b[1].gemDuurMs));
+  return pool[0][0];
 }
 
 // Vaste taken: kennisbank verversen (elke 6 uur, met proef), reserve-snapshot, dagelijkse proef (5 vragen), opruimen.
 export function startTaken({ vraagbaak, opslag, config }) {
-  const proef = config.apiSleutel ? maakProef({ config }) : null;
+  const proef = config.apiSleutel ? maakProef({ config, opslagLive: opslag }) : null;
   const laadSnapshot = () => {
     try {
       const snap = JSON.parse(readFileSync(new URL('../kennisbank/snapshot.json', import.meta.url), 'utf8'));
@@ -130,19 +142,40 @@ export function startTaken({ vraagbaak, opslag, config }) {
   };
   // Volledige testset (V3) op de server zelf, ook zolang de vraagbaak voor bezoekers uit staat.
   // Eén keer per combinatie van versie, kennisbank, model en instructie; uitslag op GET /proef (geen bezoekersgegevens).
+  let volledigBezig = false;
   const volledig = async () => {
-    if (!config.apiSleutel || !vraagbaak.kb) return;
+    if (!config.apiSleutel || !vraagbaak.kb || volledigBezig) return;
+    volledigBezig = true;
+    try { await volledigDraai(); } finally { volledigBezig = false; }
+  };
+  const volledigDraai = async () => {
     const { INSTRUCTIE_VERSIE } = await import('./instructie.mjs');
-    const sleutel = [VERSIE, vraagbaak.kb.versie, config.model, INSTRUCTIE_VERSIE].join('|');
+    const { BEOORDELAAR_VERSIE } = await import('./beoordelaar.mjs');
+    const { laadTestset } = await import('./proef.mjs');
+    const sleutel = [VERSIE, vraagbaak.kb.versie, config.model, INSTRUCTIE_VERSIE, laadTestset().versie, BEOORDELAAR_VERSIE].join('|');
     const oud = opslag.staat('proef:volledig', null);
     if (oud && oud.sleutel === sleutel && !oud.fout) return;
     if (oud && Date.now() - Date.parse(oud.tijd) < 6 * 3_600_000 && oud.sleutel.split('|')[0] === VERSIE) return;
-    const u = await maakProef({ config, volledig: true, herhaal: 3 })(vraagbaak.kb).catch((e) => ({ ok: false, fout: e.message, uitslag: [] }));
+    // Besluit 447: beide nadenk-varianten volledig, met de beoordelaar (besluit 448).
+    const varianten = {};
+    for (const denken of ['low', 'uit']) {
+      const u = await maakProef({ config, volledig: true, herhaal: 3, denken })(vraagbaak.kb).catch((e) => ({ ok: false, fout: `${e.soort || 'fout'} ${e.status || ''} ${e.message || ''} ${e.uitleg || ''}`.replace(/\s+/g, ' ').trim(), uitslag: [] }));
+      varianten[denken] = {
+        geslaagd: !!u.ok, fout: u.fout || '', ...(u.apiFout ? { apiFout: u.apiFout, bij_vraag: u.bijVraag } : {}),
+        goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout, gemDuurMs: u.gemDuurMs,
+        fouten: (u.uitslag || []).filter((x) => !x.goed).map((x) => ({ id: x.id, soort: x.soort, fouten: x.details.map((d) => d.fouten.join('; ')), antwoord: x.details[0]?.antwoord, oordeel: x.details.find((d) => d.oordeel)?.oordeel?.toelichting, diag: x.details.find((d) => d.diag)?.diag })),
+        antwoorden: (u.uitslag || []).map((x) => ({ id: x.id, goed: x.goed, antwoord: x.details[0]?.antwoord, oordeel: x.details[0]?.oordeel ? { juist: x.details[0].oordeel.juist, gegrond: x.details[0].oordeel.gegrond, beantwoordt: x.details[0].oordeel.beantwoordt, toezegging: x.details[0].oordeel.toezegging, toelichting: x.details[0].oordeel.toelichting } : null })),
+      };
+      opslag.log('proef', `volledige testset ${config.model} denken ${denken}: ${u.goed}/${u.totaal}, valkuilen fout ${u.valkuilFout}${u.fout ? ', fout ' + u.fout : ''}`);
+    }
+    const gekozen = kiesVariant(varianten);
+    const g = gekozen ? varianten[gekozen] : {};
+    const fout = Object.values(varianten).every((v) => v.fout) ? Object.values(varianten).map((v) => v.fout).join(' | ') : '';
     opslag.zetStaat('proef:volledig', {
-      sleutel, tijd: new Date().toISOString(), model: config.model, instructie: INSTRUCTIE_VERSIE, geslaagd: !!u.ok, fout: u.fout || '', ...(u.apiFout ? { apiFout: u.apiFout, bij_vraag: u.bijVraag } : {}), goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout,
-      fouten: (u.uitslag || []).filter((x) => !x.goed).map((x) => ({ id: x.id, soort: x.soort, fouten: x.details.map((d) => d.fouten.join('; ')), antwoord: x.details[0]?.antwoord, diag: x.details.find((d) => d.diag)?.diag })),
+      sleutel, tijd: new Date().toISOString(), model: config.model, instructie: INSTRUCTIE_VERSIE, beoordelaar: `${config.beoordelaarModel} ${BEOORDELAAR_VERSIE}`,
+      gekozen, geslaagd: !!g.geslaagd, fout, goed: g.goed, totaal: g.totaal, lat: g.lat, valkuilFout: g.valkuilFout, gemDuurMs: g.gemDuurMs,
+      varianten,
     });
-    opslag.log('proef', `volledige testset ${config.model}: ${u.goed}/${u.totaal}, valkuilen fout ${u.valkuilFout}`);
   };
   setTimeout(() => ververs().then(volledig), 5_000).unref();
   setInterval(() => volledig().catch(() => {}), 3_600_000).unref();
@@ -158,7 +191,7 @@ export function startTaken({ vraagbaak, opslag, config }) {
     const dag = nu.toISOString().slice(0, 10);
     if (nu.getUTCHours() !== 2 || opslag.staat('proef:dag', '') === dag || !proef || !vraagbaak.status().aan) return;
     opslag.zetStaat('proef:dag', dag);
-    const u = await maakProef({ config, aantal: 5 })(vraagbaak.kb).catch(() => ({ ok: false, goed: 0, totaal: 5 }));
+    const u = await maakProef({ config, aantal: 5, opslagLive: opslag })(vraagbaak.kb).catch(() => ({ ok: false, goed: 0, totaal: 5 }));
     opslag.zetStaat('proef:laatste', { dag, ...u });
     if (!u.ok) vraagbaak.zetUit('proef_rood');
   }, 10 * 60_000).unref();

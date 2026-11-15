@@ -1,6 +1,6 @@
 // Kern van de vraagbaak: aan/uit, grenzen, gesprekken, antwoorden met controle, register, kennisbank.
 import { schoonOp, taal as taalVan } from './schoon.mjs';
-import { controleer, parseModelUitvoer, DOORVERWIJZING } from './controle.mjs';
+import { controleer, DOORVERWIJZING } from './controle.mjs';
 import { vraagClaude, ApiFout } from './claude.mjs';
 import { kostenDollar, DOLLAR_NAAR_EURO } from './config.mjs';
 import { kennisbankAlsTekst, bouwKennisbank } from './kennisbank.mjs';
@@ -143,21 +143,23 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     const berichten = [...beurten, { role: 'user', content: schoon }];
 
     let uitkomst; let kostenMilliCent = 0; let gebruiktModel = config.model;
+    // Besluit 447: nadenken volgens de variant die de testset koos ('uit' of 'low'); de proef zet hem vast.
+    const denken = config.denkenVast || opslag.staat('proef:volledig', null)?.gekozen || config.denken;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), config.apiTimeoutMs);
     try {
       let r;
       try {
-        r = await vraagClaude({ config, kbTekst, beurten: berichten, model: config.model, fetchFn, signaal: ctrl.signal });
+        r = await vraagClaude({ config, kb, beurten: berichten, model: config.model, denken, fetchFn, signaal: ctrl.signal });
       } catch (e) {
         if (!(e instanceof ApiFout) || !config.terugvalModel || ['sleutel', 'tegoed'].includes(e.soort)) throw e;
         gebruiktModel = config.terugvalModel;
-        r = await vraagClaude({ config, kbTekst, beurten: berichten, model: config.terugvalModel, fetchFn, signaal: ctrl.signal });
+        r = await vraagClaude({ config, kb, beurten: berichten, model: config.terugvalModel, denken, fetchFn, signaal: ctrl.signal });
       }
       boekApi(true);
       kostenMilliCent = boekKosten(kostenDollar(gebruiktModel, r.usage));
       controleerPiek();
-      uitkomst = controleer(parseModelUitvoer(r.tekst), kb, { taal, kbTekst });
+      uitkomst = controleer(r, kb, { taal, kbTekst });
       // Alleen voor de proef (besluit 443): waarom een antwoord is vervangen; de server stuurt dit nooit naar de bezoeker.
       if (uitkomst.vervangen || uitkomst.doorverwezen) uitkomst.diag = { reden: uitkomst.reden || '', stop: r.stop || '', ruw: String(r.tekst || '').slice(0, 400) };
     } catch (e) {
