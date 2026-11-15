@@ -43,6 +43,8 @@ export function laadConfig(env = process.env) {
     perIpDag: getal('VRAAG_PER_IP_DAG', 100),
     tokensPerIpUur: getal('VRAAG_TOKENS_PER_IP_UUR', 10),
     plafondUurEuro: getal('VRAAG_PLAFOND_UUR', 2),
+    // Kostenpiek (zet de vraagbaak blijvend uit tot akkoord): pas vanaf € 1,50 in een uur (was € 0,50, te laag voor Sonnet).
+    piekDrempelEuro: getal('VRAAG_PIEK_DREMPEL', 1.5),
     plafondDagEuro: getal('VRAAG_PLAFOND_DAG', 8),
     serverVragenPerUur: getal('VRAAG_SERVER_PER_UUR', 600),
     puzzelBits: getal('VRAAG_PUZZEL_BITS', 18), // ca. 1 s op een telefoon
