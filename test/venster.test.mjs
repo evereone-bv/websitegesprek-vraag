@@ -262,3 +262,10 @@ test('AI-melding (V1): eerste zin altijd zichtbaar, rest klapt in na de eerste v
   assert.match(js, /bezig = true; knop\.disabled = true;\n\s*klapMelding\(false\);/);
   assert.match(js, /'aria-expanded': 'true'/);
 });
+
+test('knop Meer/Minder duwt de laatste regel van de AI-melding niet omlaag, tikvlak blijft 44 px', () => {
+  const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
+  assert.match(js, /\.mt\{position:relative;display:inline;/);
+  assert.ok(!/\.mt\{[^}]*min-height/.test(js));
+  assert.match(js, /\.mt::after\{[^}]*height:44px/);
+});

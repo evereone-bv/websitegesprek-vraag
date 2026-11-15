@@ -111,7 +111,10 @@
     '#wg-vraag-venster .x::before{transform:rotate(45deg)}#wg-vraag-venster .x::after{transform:rotate(-45deg)}' +
     '#wg-vraag-venster .m{margin:0;padding:16px 24px;font-size:14px;line-height:1.5;color:#5B6775;background:#F6F4EE;border-bottom:1px solid #E3DED2}' +
     '#wg-vraag-venster .m.dicht{padding-top:4px;padding-bottom:4px}#wg-vraag-venster .m.dicht .mrest{display:none}' +
-    '#wg-vraag-venster .mt{display:inline-flex;align-items:center;min-height:44px;margin-left:8px;padding:0 4px;background:transparent;color:#0E1B2C;font-weight:600;font-size:14px;text-decoration:underline;text-underline-offset:2px;vertical-align:middle}' +
+    // Knop 'Meer/Minder' even hoog als de tekstregel (anders zakt de laatste regel, Raymond 15 nov 09:24); het tikvlak van
+    // 44 px zit in een onzichtbare laag eromheen (WCAG 2.5.8, Apple 44 pt).
+    '#wg-vraag-venster .mt{position:relative;display:inline;margin:0 0 0 8px;padding:0 4px;border:0;background:transparent;color:#0E1B2C;font-family:inherit;font-weight:600;font-size:14px;line-height:1.5;text-decoration:underline;text-underline-offset:2px;vertical-align:baseline}' +
+    '#wg-vraag-venster .mt::after{content:"";position:absolute;left:-4px;right:-4px;top:50%;height:44px;transform:translateY(-50%)}' +
     '#wg-vraag-venster .l{flex:1;overflow:auto;padding:16px 24px;display:flex;flex-direction:column;gap:16px;overscroll-behavior:contain}' +
     '#wg-vraag-venster .b{max-width:88%;padding:12px 16px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}' +
     '#wg-vraag-venster .b.u{align-self:flex-end;background:#0E1B2C;color:#F6F4EE;border-bottom-right-radius:4px}' +
