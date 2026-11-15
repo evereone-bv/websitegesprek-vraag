@@ -108,9 +108,27 @@ export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = t
     const { kennisbankAlsTekst } = await import('./kennisbank.mjs');
     const variant = denken || opslagLive?.staat('proef:volledig', null)?.gekozen || config.denken;
     const gekozenModel = model || opslagLive?.staat('proef:volledig', null)?.gekozenModel || config.model;
-    const cfg = { ...config, modus: 'aan', diagAltijd: true, denkenVast: variant, modelVast: gekozenModel, perIpUur: 1e6, perIpDag: 1e6, perTokenVragen: 1e6, tokensPerIpUur: 1e6, puzzelBits: 2 };
+    const cfg = { ...config, modus: 'aan', diagAltijd: true, denkenVast: variant, modelVast: gekozenModel, perIpUur: 1e6, perIpDag: 1e6, perTokenVragen: 1e6, tokensPerIpUur: 1e6, puzzelBits: 2,
+      // Besluit 467: de proef heeft geen kostenplafond (de echte vraagbaak wel). Anders stopt hij halverwege met lege antwoorden.
+      plafondUurEuro: 1e6, plafondDagEuro: 1e6, serverVragenPerUur: 1e6 };
+    // Verbruik van de antwoorden (niet de beoordelaar) bijhouden, zodat /proef laat zien of de cache werkt en wat een vraag kost.
+    const verbruik = { aanroepen: 0, invoer: 0, cache_schrijf: 0, cache_lees: 0, uitvoer: 0, dollar: 0 };
+    const { kostenDollar } = await import('./config.mjs');
+    const telFetch = async (url, opts) => {
+      const res = await fetchFn(url, opts);
+      try {
+        const body = JSON.parse(opts?.body || '{}');
+        if (String(url).endsWith('/v1/messages') && !body.output_config?.format && res.ok) {
+          const d = await res.clone().json();
+          const us = d?.usage || {};
+          verbruik.aanroepen++; verbruik.invoer += us.input_tokens || 0; verbruik.cache_schrijf += us.cache_creation_input_tokens || 0;
+          verbruik.cache_lees += us.cache_read_input_tokens || 0; verbruik.uitvoer += us.output_tokens || 0; verbruik.dollar += kostenDollar(gekozenModel, us);
+        }
+      } catch { /* telling is alleen informatie */ }
+      return res;
+    };
     const tijdelijk = openOpslag(':memory:');
-    const vb = maakVraagbaak({ config: cfg, opslag: tijdelijk, fetchFn });
+    const vb = maakVraagbaak({ config: cfg, opslag: tijdelijk, fetchFn: telFetch });
     vb.zetKennisbank(kandidaat, true);
     const beoordelaar = maakBeoordelaar({ config: cfg, kbTekst: kennisbankAlsTekst(kandidaat), fetchFn });
     const alle = laadTestset().items;
@@ -119,15 +137,18 @@ export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = t
     const u = await draaiTestset(async (vraag, g) => {
       if (!g.token) { const pz = vb.puzzel({ ip }); g.token = vb.token({ ip, uitdaging: pz.uitdaging, oplossing: losPuzzelOp(pz.uitdaging, pz.bits) }).token; }
       const r = await vb.vraag({ ip, tokenWaarde: g.token, vraagTekst: vraag, pagina: 'https://websitegesprek.nl/proef' });
+      // Staat de vraagbaak in de proef uit (bijv. door een fout), stop dan zichtbaar in plaats van lege antwoorden te tellen.
+      if (r.uit || r.fout) return { apiFout: { soort: 'proef_' + (r.reden || r.fout || 'uit'), status: r.status || 0, type: '', uitleg: '' } };
       const reg = tijdelijk.db.prepare('SELECT onderwerp FROM register WHERE id = ?').get(r.id || '');
       // Besluit 455: de vaste Engelse AI-melding hoort er bewust boven; de beoordelaar kijkt alleen naar het antwoord zelf.
       const { MELDING_EN_TEKST } = await import('./vraagbaak.mjs');
       const antwoord = String(r.antwoord || '').startsWith(MELDING_EN_TEKST + '\n\n') ? String(r.antwoord).slice(MELDING_EN_TEKST.length + 2) : r.antwoord;
       return { ...r, antwoord, buiten: reg?.onderwerp === 'buiten_onderwerp' };
     }, { items, herhaalValkuilen: herhaal, beoordelaar });
-    if (u.apiFout) return { ok: false, denken: variant, fout: tekstApiFout(u.apiFout), apiFout: u.apiFout, bijVraag: u.bijVraag, goed: 0, totaal: 0, lat: 0, valkuilFout: 0, uitslag: [] };
+    const kosten = { ...verbruik, euro: Math.round(verbruik.dollar * 0.95 * 1000) / 1000, euro_per_vraag: verbruik.aanroepen ? Math.round(verbruik.dollar * 0.95 / verbruik.aanroepen * 10000) / 10000 : 0 };
+    if (u.apiFout) return { ok: false, denken: variant, fout: tekstApiFout(u.apiFout), apiFout: u.apiFout, bijVraag: u.bijVraag, goed: 0, totaal: 0, lat: 0, valkuilFout: 0, uitslag: [], kosten };
     const ok = volledig ? u.geslaagd : u.goed >= Math.ceil(items.length * 0.9);
-    return { ok, denken: variant, goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout, gemDuurMs: u.gemDuurMs, uitslag: u.uitslag };
+    return { ok, denken: variant, goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout, gemDuurMs: u.gemDuurMs, uitslag: u.uitslag, kosten };
   };
 }
 
@@ -183,7 +204,7 @@ export function startTaken({ vraagbaak, opslag, config }) {
       const u = await maakProef({ config, volledig: true, herhaal: 3, denken, model })(vraagbaak.kb).catch((e) => ({ ok: false, fout: `${e.soort || 'fout'} ${e.status || ''} ${e.message || ''} ${e.uitleg || ''}`.replace(/\s+/g, ' ').trim(), uitslag: [] }));
       varianten[naam] = { model, denken,
         geslaagd: !!u.ok, fout: u.fout || '', ...(u.apiFout ? { apiFout: u.apiFout, bij_vraag: u.bijVraag } : {}),
-        goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout, gemDuurMs: u.gemDuurMs,
+        goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout, gemDuurMs: u.gemDuurMs, kosten: u.kosten,
         fouten: (u.uitslag || []).filter((x) => !x.goed).map((x) => ({ id: x.id, soort: x.soort, fouten: x.details.map((d) => d.fouten.join('; ')), antwoord: x.details[0]?.antwoord, oordeel: x.details.find((d) => d.oordeel)?.oordeel?.toelichting, diag: x.details.find((d) => d.diag)?.diag })),
         antwoorden: (u.uitslag || []).map((x) => ({ id: x.id, goed: x.goed, antwoord: x.details.at(-1)?.antwoord, herkansing: !!x.details.at(-1)?.herkansing, oordeel: x.details.at(-1)?.oordeel ? { juist: x.details.at(-1).oordeel.juist, gegrond: x.details.at(-1).oordeel.gegrond, beantwoordt: x.details.at(-1).oordeel.beantwoordt, toezegging: x.details.at(-1).oordeel.toezegging, helder: x.details.at(-1).oordeel.helder, toelichting: x.details.at(-1).oordeel.toelichting } : null, blokken: x.details.at(-1)?.diag?.blokken })),
       };

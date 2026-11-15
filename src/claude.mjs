@@ -16,8 +16,9 @@ export function veiligeUitleg(tekst) {
 
 // Nadenken (besluit 447): 'uit' = thinking disabled (Haiku 5.5 staat dat toe bij effort high of lager);
 // 'low' = adaptief nadenken op effort low. Denktokens tellen mee in max_tokens, dus 'low' krijgt meer ruimte.
-export function denkInstelling(denken, maxUitvoer) {
-  if (denken === 'uit') return { thinking: { type: 'disabled' }, max_tokens: maxUitvoer };
+export function denkInstelling(denken, maxUitvoer, model = '') {
+  // Besluit 467: Sonnet 5.5 en nieuwer kennen 'disabled' niet; daar zet {type:'between_tools'} het nadenken uit (foutmelding API 15 nov).
+  if (denken === 'uit') return { thinking: { type: String(model).includes('haiku') ? 'disabled' : 'between_tools' }, max_tokens: maxUitvoer };
   return { thinking: { type: 'adaptive' }, output_config: { effort: denken || 'low' }, max_tokens: Math.max(maxUitvoer, 4000) };
 }
 
@@ -69,7 +70,7 @@ export async function vraagClaude({ config, kb, beurten, model, denken = 'low', 
     : { role: b.role, content: String(b.content) }));
   const body = {
     model,
-    ...denkInstelling(denken, config.maxUitvoerTokens),
+    ...denkInstelling(denken, config.maxUitvoerTokens, model),
     inference_geo: config.inferenceGeo,
     system: [{ type: 'text', text: INSTRUCTIE, cache_control: cacheInstelling(config.cacheTtl) }],
     messages: berichten,
