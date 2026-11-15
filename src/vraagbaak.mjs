@@ -220,14 +220,27 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
       if (res.status !== 200 || /sgcaptcha/.test(html.slice(0, 600))) throw new Error('site gaf ' + res.status);
       const tag = html.match(/<[^>]*id=["']wg-vraag-blok["'][^>]*>/i)?.[0] || '';
       const aan = /data-aan=["']1["']/i.test(tag);
+      const test = /data-zichtbaar=["']test["']/i.test(tag);
       const oud = opslag.staat('site:aan', null);
-      if (!oud || oud.aan !== aan) opslag.log('schakelaar', `site zegt ${aan ? 'aan' : 'uit'}`);
-      opslag.zetStaat('site:aan', { aan, tijd: klok() });
-      return { ok: true, aan };
+      if (!oud || oud.aan !== aan || !!oud.test !== test) opslag.log('schakelaar', `site zegt ${aan ? 'aan' : 'uit'}${aan && test ? ' (testmodus)' : ''}`);
+      // Voorwaarde Juridisch bij 421: vóór de vraagbaak live gaat voor bezoekers, wordt het register leeggemaakt.
+      // Dat gebeurt hier vanzelf, één keer, op het moment dat de site voor het eerst 'aan zonder testmodus' zegt.
+      if (aan && !test && !opslag.staat('register:gewist_bij_live', null)) {
+        const n = wisRegister();
+        opslag.zetStaat('register:gewist_bij_live', { tijd: klok(), aantal: n });
+        opslag.log('register', `register leeggemaakt bij livegang (${n} regels, voorwaarde Juridisch 421)`);
+      }
+      opslag.zetStaat('site:aan', { aan, test, tijd: klok() });
+      return { ok: true, aan, test };
     } catch (e) {
       opslag.log('schakelaar', `lezen mislukt: ${e.message}`);
       return { ok: false };
     }
+  }
+
+  // Register leegmaken (voorwaarde Juridisch bij 421). Geeft het aantal gewiste regels terug.
+  function wisRegister() {
+    return opslag.db.prepare('DELETE FROM register').run().changes;
   }
 
   function gezondheid() {
@@ -236,6 +249,10 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     return {
       aan: s.aan, reden: s.reden || '', modus: config.modus,
       schakelaar_site: opslag.staat('site:aan', null)?.aan ?? null,
+      testmodus: !!opslag.staat('site:aan', null)?.test,
+      // Alleen een aantal, nooit inhoud: zo ziet de dagelijkse controle of er in testmodus vragen van anderen binnenkomen (421).
+      vragen_24u: opslag.db.prepare("SELECT COUNT(*) AS n FROM register WHERE tijd >= ? AND pagina != '/proef'").get(t - DAG).n,
+      register_gewist_bij_live: opslag.staat('register:gewist_bij_live', null)?.tijd ? new Date(opslag.staat('register:gewist_bij_live', null).tijd).toISOString() : null,
       kennisbank: kb ? kb.versie : null,
       kosten_vandaag_euro: Math.round(euro(opslag.stand(`kosten:dag:${dagVak(t)}`)) * 100) / 100,
       vragen_dit_uur: opslag.stand(`server:uur:${uurVak(t)}`),
@@ -243,5 +260,5 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     };
   }
 
-  return { status, zetUit, zetAan, leesSchakelaar, puzzel, token, vraag, duim, ververs, gezondheid, zetKennisbank, laadActieveKennisbank, get kb() { return kb; } };
+  return { status, zetUit, zetAan, leesSchakelaar, wisRegister, puzzel, token, vraag, duim, ververs, gezondheid, zetKennisbank, laadActieveKennisbank, get kb() { return kb; } };
 }

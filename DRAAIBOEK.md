@@ -39,6 +39,10 @@ De server is aan als alle drie kloppen (modus "auto", standaard):
 Testmodus (besluit 421): `data-aan="1"` plus `data-zichtbaar="test"` = server aan, maar bezoekers zien de chat alleen met
 `?vraagbaak=test` in het adres. Voor de livegang `data-zichtbaar` weghalen.
 
+Livegang (voorwaarde Juridisch bij 421): zodra de site voor het eerst `data-aan="1"` zonder `data-zichtbaar="test"` heeft,
+maakt de server het register één keer leeg (testvragen weg); zie `register_gewist_bij_live` in /healthz. Handmatig kan het
+ook: `node src/beheer.mjs wis-register` in de container.
+
 Uitzetten: `data-aan="0"` op de site (binnen 15 minuten uit op de server; de knop verdwijnt meteen).
 Noodgeval: `VRAAG_ACTIEF=0` in `/etc/vraag/vraag.env` zet hem altijd uit (vraagt SSH).
 Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).

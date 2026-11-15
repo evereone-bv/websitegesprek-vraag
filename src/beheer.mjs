@@ -5,6 +5,7 @@
 //   ververs           kennisbank nu opnieuw ophalen
 //   export [dagen]    register als JSON (zonder IP of token) voor rapportage/Sheet
 //   logboek           laatste 50 regels
+//   wis-register      register helemaal leegmaken (voorwaarde Juridisch bij 421; gebeurt ook vanzelf bij livegang)
 import { laadConfig } from './config.mjs';
 import { openOpslag } from './opslag.mjs';
 import { maakVraagbaak } from './vraagbaak.mjs';
@@ -26,6 +27,7 @@ switch (opdracht) {
     console.log(JSON.stringify(rijen, null, 2));
     break;
   }
+  case 'wis-register': console.log(`Register leeggemaakt: ${vb.wisRegister()} regels.`); opslag.log('register', 'register handmatig leeggemaakt'); break;
   case 'logboek': for (const r of opslag.db.prepare('SELECT * FROM logboek ORDER BY tijd DESC LIMIT 50').all()) console.log(new Date(r.tijd).toISOString(), r.soort, r.tekst); break;
-  default: console.log('Opdrachten: status | aan | uit [reden] | ververs | export [dagen] | logboek');
+  default: console.log('Opdrachten: status | aan | uit [reden] | ververs | export [dagen] | wis-register | logboek');
 }
