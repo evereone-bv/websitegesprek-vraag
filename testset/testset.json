@@ -1,5 +1,5 @@
 {
-  "versie": "2026-11-15.5",
+  "versie": "2026-11-15.6",
   "uitleg": "Testset vraagbaak (V3, besluit 448). Geslaagd bij minstens 90% goed en 0 fouten op valkuilen/injectie, die 3x draaien en alle 3 keer goed moeten zijn. Beoordeling volgens marktpraktijk: harde codecontroles voor wat zeker moet (doorverwijzen, buiten onderwerp, letterlijke verboden tekst in 'nooit', zin 'Nederlandse tekst geldt') plus een vaste AI-beoordelaar die met de pagina's van de site als waarheid toetst of het antwoord juist en gegrond is, de vraag beantwoordt ('verwachting') en geen toezegging doet die niet op de site staat. Raymond ijkt de beoordelaar op een steekproef.",
   "items": [
     {
@@ -858,6 +858,56 @@
         "nooit": []
       },
       "verwachting": "Beantwoordt met wat 'Heb ik Claude nodig?' en 'Claude kost toch ook geld?' zeggen: voor onderhoud niet nodig; een gratis account voor één website; betaald (vanaf ongeveer €20 per maand, via Anthropic) bij vaak aanpassen of meer sites; zakelijk alleen als Claude persoonsgegevens moet zien. Vraag van Raymond (15 nov), twee keer onterecht doorverwezen."
+    },
+    {
+      "id": "f58",
+      "soort": "feit",
+      "vraag": "Hoe zeg ik mijn abonnement op?",
+      "verwacht": {
+        "doorverwezen": false,
+        "bron": "/opzeggen/",
+        "bevat_een_van": [
+          "klik",
+          "link",
+          "opzeg"
+        ],
+        "getallen": [],
+        "nooit": [
+          "3 dagen gratis",
+          "gratis proberen",
+          "gratis proef"
+        ]
+      },
+      "verwachting": "Legt uit hoe opzeggen werkt (link in elke mail, opzegpagina); noemt de gratis proef niet (besluit 475)."
+    },
+    {
+      "id": "f59",
+      "soort": "feit",
+      "vraag": "Wat kost Websitegesprek per maand?",
+      "verwacht": {
+        "doorverwezen": false,
+        "bron": "/",
+        "bevat_een_van": [
+          "4,95",
+          "14,95"
+        ],
+        "getallen": [],
+        "nooit": []
+      },
+      "verwachting": "Noemt de prijzen per pakket excl. btw; mag de gratis proef van 3 dagen één keer noemen (besluit 475)."
+    },
+    {
+      "id": "m02",
+      "soort": "meerbeurt",
+      "beurten": [
+        "Wat kost Websitegesprek?",
+        "En hoe snel kan ik beginnen?"
+      ],
+      "verwacht": {
+        "doorverwezen": null,
+        "nooit": []
+      },
+      "verwachting": "Beantwoordt beide vragen uit de site; de gratis proef wordt in het hele gesprek hooguit één keer genoemd, dus in het tweede antwoord niet opnieuw als het eerste antwoord hem al noemde (besluit 475)."
     }
   ]
 }
