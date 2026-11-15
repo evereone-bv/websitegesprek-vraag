@@ -22,6 +22,7 @@
     mislukt: 'Dat lukt nu even niet. Vraag het via WhatsApp of mail, dan krijg je persoonlijk antwoord.',
     uit: 'De vraagbaak is even niet beschikbaar. Je vraag is welkom via WhatsApp of mail; je krijgt dan persoonlijk antwoord.',
     naam: 'Websitegesprek', mens: 'Liever een mens?', mic: 'Vraag inspreken', micStop: 'Stoppen met luisteren', luister: 'Ik luister…', spraakRegel: 'Je browser zet je spraak om in tekst, soms via Apple of Google. Wij krijgen alleen de tekst.', lees: 'Voorlezen', leesStop: 'Stoppen met voorlezen', geenMic: 'Inspreken werkt niet in deze browser. Typ je vraag, of gebruik het microfoontje van je toetsenbord.', wa: 'WhatsApp', of: 'of', mail: 'mail ons', bron: 'Lees meer', privacy: 'Privacy', nuttig: 'Was dit nuttig?', ja: 'Ja, nuttig', nee: 'Nee, niet nuttig',
+    meer: 'Meer', minder: 'Minder',
     v1: 'Je praat met een AI-assistent (Claude). Antwoorden kunnen fouten bevatten; wat telt, staat op onze website en in onze voorwaarden. Deel geen persoonsgegevens; liever een mens? Vraag het via WhatsApp of mail.',
     vol: 'Dit gesprek is vol. Begin een nieuw gesprek of vraag het via WhatsApp.', tegrootte: 'Je vraag is te lang (max. 500 tekens).', start: 'Verbinden…'
   } : {
@@ -29,6 +30,7 @@
     mislukt: "That isn't working right now. Ask us via WhatsApp or email for a personal answer.",
     uit: 'The assistant is not available right now. Ask us via WhatsApp or email for a personal answer.',
     naam: 'Websitegesprek', mens: 'Prefer a human?', mic: 'Speak your question', micStop: 'Stop listening', luister: 'Listening…', spraakRegel: 'Your browser turns your speech into text, sometimes via Apple or Google. We only receive the text.', lees: 'Read aloud', leesStop: 'Stop reading', geenMic: "Speaking isn't working. Use your keyboard's microphone or type your question.", wa: 'WhatsApp', of: 'or', mail: 'email us', bron: 'Read more', privacy: 'Privacy', nuttig: 'Was this helpful?', ja: 'Yes, helpful', nee: 'No, not helpful',
+    meer: 'More', minder: 'Less',
     v1: "You're chatting with an AI assistant (Claude). Answers may contain mistakes; what counts is on our website and in our terms. Don't share personal data; prefer a human? Ask us via WhatsApp or email.",
     vol: 'This conversation is full. Start a new one or ask via WhatsApp.', tegrootte: 'Your question is too long (max. 500 characters).', start: 'Connecting…'
   };
@@ -108,6 +110,8 @@
     '#wg-vraag-venster .x::before,#wg-vraag-venster .x::after{content:"";position:absolute;left:14px;top:23px;width:20px;height:2px;border-radius:1px;background:#F6F4EE}' +
     '#wg-vraag-venster .x::before{transform:rotate(45deg)}#wg-vraag-venster .x::after{transform:rotate(-45deg)}' +
     '#wg-vraag-venster .m{margin:0;padding:16px 24px;font-size:14px;line-height:1.5;color:#5B6775;background:#F6F4EE;border-bottom:1px solid #E3DED2}' +
+    '#wg-vraag-venster .m.dicht{padding-top:4px;padding-bottom:4px}#wg-vraag-venster .m.dicht .mrest{display:none}' +
+    '#wg-vraag-venster .mt{display:inline-flex;align-items:center;min-height:44px;margin-left:8px;padding:0 4px;background:transparent;color:#0E1B2C;font-weight:600;font-size:14px;text-decoration:underline;text-underline-offset:2px;vertical-align:middle}' +
     '#wg-vraag-venster .l{flex:1;overflow:auto;padding:16px 24px;display:flex;flex-direction:column;gap:16px;overscroll-behavior:contain}' +
     '#wg-vraag-venster .b{max-width:88%;padding:12px 16px;border-radius:16px;white-space:pre-wrap;overflow-wrap:anywhere}' +
     '#wg-vraag-venster .b.u{align-self:flex-end;background:#0E1B2C;color:#F6F4EE;border-bottom-right-radius:4px}' +
@@ -351,12 +355,14 @@
     }
   }
 
+  var klapMelding = function () { /* wordt gezet zodra het venster er is */ };
   function stuur(tekst) {
     if (bezig) return;
     tekst = String(tekst || '').trim();
     if (!tekst) return;
     if (tekst.length > 500) { bericht('a', T.tegrootte); return; }
     bezig = true; knop.disabled = true;
+    klapMelding(false);
     bericht('u', tekst);
     var wacht = bericht('a', T.bezig);
     wacht.appendChild(maak('span', { class: 'pt', 'aria-hidden': 'true' })); wacht.appendChild(maak('span', { class: 'pt', 'aria-hidden': 'true' })); wacht.appendChild(maak('span', { class: 'pt', 'aria-hidden': 'true' }));
@@ -395,7 +401,20 @@
     var x = maak('button', { type: 'button', class: 'x', 'aria-label': T.sluit });
     x.onclick = function () { stopLezen(); stopLuisteren(true); el.style.display = 'none'; };
     k.appendChild(x); el.appendChild(k);
-    var melding = maak('div', { class: 'm' }, T.v1); // V1: altijd zichtbaar vóór de eerste vraag
+    // V1: helemaal zichtbaar vóór de eerste vraag. Daarna ingeklapt tot de eerste zin (blijft altijd zichtbaar: je praat met
+    // een AI), met 'Meer' om de rest weer te tonen (wens Raymond 15 nov 08:49: de melding bedekte te veel van het scherm).
+    var punt = T.v1.indexOf('.') + 1;
+    var melding = maak('div', { class: 'm' });
+    var mKort = maak('span', { class: 'mkort' }, T.v1.slice(0, punt));
+    var mRest = maak('span', { class: 'mrest', id: 'wg-vraag-v1-rest' }, T.v1.slice(punt));
+    var mKnop = maak('button', { type: 'button', class: 'mt', 'aria-expanded': 'true', 'aria-controls': 'wg-vraag-v1-rest' }, T.minder);
+    klapMelding = function (open) {
+      melding.className = open ? 'm' : 'm dicht';
+      mKnop.setAttribute('aria-expanded', open ? 'true' : 'false');
+      mKnop.textContent = open ? T.minder : T.meer;
+    };
+    mKnop.onclick = function () { klapMelding(melding.className.indexOf('dicht') > -1); };
+    melding.appendChild(mKort); melding.appendChild(mRest); melding.appendChild(mKnop);
     el.appendChild(melding);
     lijst = maak('div', { class: 'l', 'aria-live': 'polite' });
     el.appendChild(lijst);
@@ -429,6 +448,7 @@
     document.body.appendChild(el);
     try {
       var oud = JSON.parse(sessionStorage.getItem(OPSLAG) || '[]');
+      if (oud.length) klapMelding(false);
       oud.forEach(function (o) { if (o.c.indexOf('u') > -1) bericht('u', o.t); else bericht('a', o.t, o.bron, o.id); });
     } catch (e) { /* niets */ }
     haalToken(function (r) {
