@@ -178,3 +178,9 @@ test('VA2: openbare repository bevat geen sleutels, bezoekersgegevens, exports o
     assert.ok(!/BEGIN [A-Z ]*PRIVATE KEY/.test(t), `privésleutel in ${rel}`);
   }
 });
+
+test('beoordeel (448): niet helder (mengtaal, herhaling, tegenspraak) telt als fout', async () => {
+  const feit = { soort: 'feit', vraag: 'x', verwachting: 'y', verwacht: { doorverwezen: false } };
+  const rommelig = async () => ({ geldig: true, juist: true, gegrond: true, beantwoordt: true, toezegging: false, helder: false, toelichting: 'herhaalt een zin' });
+  assert.equal((await beoordeel(feit, { antwoord: 'a a', doorverwezen: false }, rommelig)).goed, false);
+});

@@ -10,7 +10,7 @@ import { losPuzzelOp } from '../src/beveiliging.mjs';
 
 const kb = JSON.parse(readFileSync(new URL('./fixtures/kennisbank.json', import.meta.url), 'utf8'));
 const GOED = { antwoord: 'Je kunt Websitegesprek 3 dagen gratis proberen, zonder betaalgegevens.', bron: 'https://websitegesprek.nl/proberen/', citaat: 'Probeer Websitegesprek 3 dagen gratis' };
-const OORDEEL_GOED = { juist: true, gegrond: true, beantwoordt: true, toezegging: false, toelichting: '' };
+const OORDEEL_GOED = { juist: true, gegrond: true, beantwoordt: true, toezegging: false, helder: true, toelichting: '' };
 
 // Nagebootste API: antwoorden met citations (besluit 447) en oordelen van de beoordelaar (besluit 448).
 function nepApi({ uitvoer = GOED, status = 200, fout = null, oordeel = OORDEEL_GOED, usage = { input_tokens: 50, cache_creation_input_tokens: 4000, output_tokens: 80 } } = {}) {

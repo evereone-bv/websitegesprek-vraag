@@ -75,5 +75,6 @@ export async function vraagClaude({ config, kb, beurten, model, denken = 'low', 
   const tekstBlokken = (data?.content || []).filter((b) => b.type === 'text');
   const tekst = tekstBlokken.map((b) => b.text).join('');
   const citaties = tekstBlokken.flatMap((b) => (b.citations || []).map((c) => ({ bron: c.source || c.url || '', tekst: c.cited_text || '' })));
-  return { tekst, citaties, usage: data?.usage || {}, model: data?.model || model, stop: data?.stop_reason || '' };
+  const blokken = tekstBlokken.map((b) => ({ tekst: String(b.text || '').slice(0, 160), citaten: (b.citations || []).map((x) => String(x.cited_text || '').slice(0, 80)) }));
+  return { tekst, citaties, blokken, usage: data?.usage || {}, model: data?.model || model, stop: data?.stop_reason || '' };
 }
