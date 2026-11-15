@@ -51,7 +51,7 @@ const goedAntwoord = {
 test('controle: goed antwoord met bronvermelding gaat door', () => {
   const r = controleer(goedAntwoord, kb, { kbTekst });
   assert.equal(r.ok, true, r.reden);
-  assert.equal(r.bron, 'https://websitegesprek.nl/proberen/');
+  assert.equal(r.bron, 'https://websitegesprek.nl/proberen/#:~:text=Probeer%20Websitegesprek%203%20dagen%20gratis', 'besluit 477: link naar de geciteerde zin');
   assert.equal(r.onderwerp, 'proberen');
 });
 
@@ -220,4 +220,23 @@ test('besluit 465: testsleutel hangt af van servercode en testset, niet van vens
   assert.match(codeVingerafdruk(), /^[0-9a-f]{12}$/);
   assert.match(src, /const sleutel = \[CODE, /);
   assert.ok(!/const sleutel = \[VERSIE/.test(src));
+});
+
+test('besluit 477: tekstfragment naar de geciteerde zin, veilig gecodeerd', async () => {
+  const { tekstFragment } = await import('../src/controle.mjs');
+  assert.equal(tekstFragment('Na je bestelling krijg je een mail met je persoonlijke plugin, die je uploadt.'), '#:~:text=Na%20je%20bestelling%20krijg%20je%20een%20mail%20met');
+  assert.equal(tekstFragment('## Installeren\nUpload de plug-in, en activeer hem.'), '#:~:text=Upload%20de%20plug%2Din%2C%20en%20activeer%20hem');
+  assert.equal(tekstFragment(''), '');
+  assert.equal(tekstFragment('Kort'), '');
+});
+
+test('besluit 477: specifieke pagina wint van de homepage, ook als de homepage vaker geciteerd is', async () => {
+  const { controleer } = await import('../src/controle.mjs');
+  const kbTest = { paginas: [{ url: 'https://websitegesprek.nl/', tekst: 'Websitegesprek past je site aan. Installeren gaat snel.' }, { url: 'https://websitegesprek.nl/installeren/', tekst: 'Na je bestelling upload je de plugin en activeer je hem.' }], algemeen: '' };
+  const r = controleer({ tekst: 'Je uploadt de plugin en activeert hem.', citaties: [
+    { bron: 'https://websitegesprek.nl/', tekst: 'Websitegesprek past je site aan.' },
+    { bron: 'https://websitegesprek.nl/', tekst: 'Installeren gaat snel.' },
+    { bron: 'https://websitegesprek.nl/installeren/', tekst: 'Na je bestelling upload je de plugin en activeer je hem.' }] }, kbTest, { taal: 'nl', kbTekst: kbTest.paginas.map((p) => p.tekst).join('\n') });
+  assert.equal(r.vervangen, false, r.reden);
+  assert.match(r.bron, /^https:\/\/websitegesprek\.nl\/installeren\/#:~:text=Na%20je%20bestelling/);
 });
