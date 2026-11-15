@@ -279,6 +279,12 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
       kennisbank: kb ? kb.versie : null,
       kosten_vandaag_euro: Math.round(euro(opslag.stand(`kosten:dag:${dagVak(t)}`)) * 100) / 100,
       vragen_dit_uur: opslag.stand(`server:uur:${uurVak(t)}`),
+      // Besluit 461: snelheid van echte antwoorden (zonder proef), alleen getallen.
+      ...(() => {
+        const d = opslag.db.prepare("SELECT duur_ms FROM register WHERE tijd >= ? AND pagina != '/proef' AND duur_ms IS NOT NULL ORDER BY duur_ms").all(t - DAG).map((x) => x.duur_ms);
+        const at = (q) => (d.length ? d[Math.min(d.length - 1, Math.floor(q * d.length))] : null);
+        return { duur_ms_mediaan_24u: at(0.5), duur_ms_p90_24u: at(0.9) };
+      })(),
       proef_laatste: opslag.staat('proef:laatste', null),
     };
   }

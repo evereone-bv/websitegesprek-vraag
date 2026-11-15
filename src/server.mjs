@@ -119,13 +119,19 @@ export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = t
   };
 }
 
-// Besluit 447: kies de nadenk-variant. Alleen geslaagde varianten tellen; dan de meeste goed, bij gelijkspel de snelste.
+// Besluit 447/461: kies de nadenk-variant. Alleen geslaagde varianten tellen; daaronder de snelste die hooguit 1 vraag minder goed heeft.
 export function kiesVariant(varianten) {
   const lijst = Object.entries(varianten).filter(([, v]) => v && !v.fout);
   const geslaagd = lijst.filter(([, v]) => v.geslaagd);
   const pool = geslaagd.length ? geslaagd : lijst;
   if (!pool.length) return null;
   pool.sort((a, b) => (b[1].goed - a[1].goed) || (a[1].gemDuurMs - b[1].gemDuurMs));
+  // Besluit 461: bij (vrijwel) gelijke kwaliteit de snelste. Alleen onder geslaagde varianten, en hooguit 1 vraag minder goed.
+  if (geslaagd.length) {
+    const beste = pool[0][1].goed;
+    const bijna = pool.filter(([, v]) => v.goed >= beste - 1).sort((a, b) => a[1].gemDuurMs - b[1].gemDuurMs);
+    return bijna[0][0];
+  }
   return pool[0][0];
 }
 
