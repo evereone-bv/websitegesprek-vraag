@@ -58,8 +58,10 @@ test('standaard (auto): uit tot de schakelaar op de site aan staat én de testse
   const { INSTRUCTIE_VERSIE } = await import('../src/instructie.mjs');
   opslag.zetStaat('proef:volledig', { geslaagd: true, model: 'claude-haiku-5-5', instructie: INSTRUCTIE_VERSIE });
   assert.equal(vb.status().aan, true);
-  opslag.zetStaat('proef:volledig', { geslaagd: true, model: 'claude-sonnet-5-5', instructie: INSTRUCTIE_VERSIE });
-  assert.equal(vb.status().reden, 'testset_niet_geslaagd', 'testset voor een ander model telt niet');
+  opslag.zetStaat('proef:volledig', { geslaagd: true, model: 'claude-opus-5-5', instructie: INSTRUCTIE_VERSIE });
+  assert.equal(vb.status().reden, 'testset_niet_geslaagd', 'testset voor een model buiten de testmodellen telt niet');
+  opslag.zetStaat('proef:volledig', { geslaagd: true, gekozenModel: 'claude-sonnet-5-5', instructie: INSTRUCTIE_VERSIE });
+  assert.equal(vb.status().aan, true, 'besluit 467: de gekozen variant (Sonnet) telt');
   opslag.zetStaat('proef:volledig', { geslaagd: true, model: 'claude-haiku-5-5', instructie: INSTRUCTIE_VERSIE });
   // Site onbereikbaar of botcontrole: vorige stand blijft; na 2 uur zonder bevestiging uit.
   siteHtml = '<html><meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/"></html>';
@@ -297,12 +299,10 @@ test('besluit 447: nadenken low (adaptief, effort low, ruim max_tokens) of uit',
   assert.equal('output_config' in api2.aanroepen[0].body, false, 'geen effort boven high, anders weigert de API denken uit');
 });
 
-test('besluit 447: kiesVariant kiest de geslaagde variant met de meeste goed, bij gelijkspel de snelste', async () => {
+test('besluit 467: kiesVariant kiest op kwaliteit; alleen bij precies even goed de snelste', async () => {
   const { kiesVariant } = await import('../src/server.mjs');
   assert.equal(kiesVariant({ low: { geslaagd: true, goed: 48, gemDuurMs: 3000 }, uit: { geslaagd: true, goed: 48, gemDuurMs: 1500 } }), 'uit');
-  // Besluit 461: 1 vraag minder goed telt als gelijke kwaliteit → de snelste; 2 of meer minder → de beste.
-  assert.equal(kiesVariant({ low: { geslaagd: true, goed: 49, gemDuurMs: 3000 }, uit: { geslaagd: true, goed: 48, gemDuurMs: 1500 } }), 'uit');
-  assert.equal(kiesVariant({ low: { geslaagd: true, goed: 50, gemDuurMs: 3000 }, uit: { geslaagd: true, goed: 48, gemDuurMs: 1500 } }), 'low');
+  assert.equal(kiesVariant({ 'claude-sonnet-5-5|low': { geslaagd: true, goed: 52, gemDuurMs: 4000 }, 'claude-haiku-5-5|low': { geslaagd: true, goed: 51, gemDuurMs: 3000 } }), 'claude-sonnet-5-5|low');
   assert.equal(kiesVariant({ low: { geslaagd: true, goed: 46, gemDuurMs: 3000 }, uit: { geslaagd: false, goed: 50, gemDuurMs: 1500 } }), 'low');
   assert.equal(kiesVariant({ low: { fout: 'x' }, uit: { fout: 'y' } }), null);
 });
@@ -313,7 +313,9 @@ test('besluit 448: proef gebruikt de beoordelaar met vast model, structured outp
   const u = await maakProef({ config, fetchFn: api, aantal: 2 })(kb);
   const oordelen = api.aanroepen.filter((x) => x.body.output_config?.format);
   assert.equal(oordelen.length, 4, 'twee vragen, elk met herkansing (besluit 465)');
-  assert.equal(oordelen[0].body.model, 'claude-sonnet-5-5');
+  assert.equal(oordelen[0].body.model, 'claude-opus-5-5', 'besluit 467: Opus beoordeelt');
+  const antwoorden = api.aanroepen.filter((x) => !x.body.output_config?.format);
+  assert.equal(antwoorden[0].body.model, 'claude-sonnet-5-5', 'besluit 467: Sonnet antwoordt');
   assert.equal(oordelen[0].body.inference_geo, 'us');
   assert.equal(u.goed, 0, 'niet gegrond telt als fout');
   assert.match(u.uitslag[0].details[0].fouten.join(), /niet gegrond/);
@@ -365,7 +367,7 @@ test('457: zonder bron eerst opnieuw vragen; lukt het dan wel, dan een gewoon an
   assert.equal(api.aantal(), 2);
   assert.equal(r.doorverwezen, false);
   assert.equal(r.antwoord.includes('3 dagen'), true);
-  assert.equal(opslag.db.prepare('SELECT reden FROM register WHERE id = ?').get(r.id).reden, 'opnieuw_met_bron');
+  assert.equal(opslag.db.prepare('SELECT reden FROM register WHERE id = ?').get(r.id).reden, 'hersteld:geen_bronvermelding');
 });
 
 test('457: ook de tweede keer zonder bron → doorverwijzing, niet vaker dan één extra poging', async () => {
@@ -421,4 +423,42 @@ test('besluit 461: healthz toont de snelheid van echte antwoorden (mediaan en p9
   const h = vb.gezondheid();
   assert.equal(typeof h.duur_ms_mediaan_24u, 'number');
   assert.equal(typeof h.duur_ms_p90_24u, 'number');
+});
+
+test('besluit 467: getal dat niet op de site staat → eerst herstellen met die opdracht, dan pas doorverwijzen', async () => {
+  const fout = { antwoord: 'Je kunt Websitegesprek 5 dagen gratis proberen.', bron: 'https://websitegesprek.nl/proberen/', citaat: 'Probeer Websitegesprek 3 dagen gratis' };
+  const reeks = nepApiReeks([fout, GOED]);
+  const bodies = [];
+  const api = async (url, opts) => { bodies.push(JSON.parse(opts.body)); return reeks(url, opts); };
+  api.aantal = reeks.aantal;
+  const { vb, opslag } = opzet({}, api);
+  const t = gesprek(vb);
+  const r = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoe lang kan ik gratis proberen?', pagina: 'https://websitegesprek.nl/' });
+  assert.equal(api.aantal(), 2);
+  assert.equal(r.doorverwezen, false);
+  assert.match(opslag.db.prepare('SELECT reden FROM register WHERE id = ?').get(r.id).reden, /^hersteld:getal_niet_in_kennisbank/);
+  const tweede = bodies.filter((b) => !b.output_config?.format).at(-1).messages.at(-1).content;
+  assert.match(String(tweede), /"5 dag"/);
+  // Lukt het ook de tweede keer niet: doorverwijzing, niet vaker proberen.
+  const api2 = nepApiReeks([fout]);
+  const o2 = opzet({}, api2); const t2 = gesprek(o2.vb);
+  const r2 = await o2.vb.vraag({ ip: '10.0.0.1', tokenWaarde: t2.token, vraagTekst: 'Hoe lang kan ik gratis proberen?', pagina: 'https://websitegesprek.nl/' });
+  assert.equal(api2.aantal(), 2);
+  assert.equal(r2.doorverwezen, true);
+});
+
+test('besluit 467: vraag gaat naar het model dat de testset koos; Haiku alleen bij drukte', async () => {
+  const api = nepApi();
+  const { vb, opslag } = opzet({}, api);
+  const { INSTRUCTIE_VERSIE } = await import('../src/instructie.mjs');
+  opslag.zetStaat('proef:volledig', { geslaagd: true, gekozenModel: 'claude-haiku-5-5', gekozen: 'low', instructie: INSTRUCTIE_VERSIE });
+  const t = gesprek(vb);
+  await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Kan ik het eerst proberen?', pagina: 'https://websitegesprek.nl/' });
+  assert.equal(api.aanroepen.at(-1).body.model, 'claude-haiku-5-5');
+  const { laadConfig: lc } = await import('../src/config.mjs');
+  const c = lc({});
+  assert.equal(c.model, 'claude-sonnet-5-5');
+  assert.equal(c.terugvalModel, 'claude-haiku-5-5');
+  assert.equal(c.beoordelaarModel, 'claude-opus-5-5');
+  assert.deepEqual(c.testModellen, ['claude-sonnet-5-5', 'claude-haiku-5-5']);
 });

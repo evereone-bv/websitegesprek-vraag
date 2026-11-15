@@ -372,7 +372,7 @@
     var t6 = setTimeout(function () { wacht.firstChild.nodeValue = T.nogEven; }, 6000);
     function klaar() { clearTimeout(t6); if (wacht.parentNode) wacht.parentNode.removeChild(wacht); bezig = false; knop.disabled = false; bewaar(); }
     function vraag() {
-      post('/v1/vraag', { token: token, vraag: tekst, pagina: location.href.split('#')[0] }, 15000).then(function (r) {
+      post('/v1/vraag', { token: token, vraag: tekst, pagina: location.href.split('#')[0] }, 28000).then(function (r) {
         if (r.__status === 401 && opnieuw < 1) {
           opnieuw++;
           return haalToken(function (ok) { if (ok) vraag(); else { klaar(); terugval(T.mislukt); } });

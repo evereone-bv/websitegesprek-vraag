@@ -49,7 +49,7 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
       const site = opslag.staat('site:aan', null);
       if (!site || !site.aan || klok() - site.tijd > 2 * UUR) return { aan: false, reden: 'schakelaar_site_uit' };
       const p = opslag.staat('proef:volledig', null);
-      if (!p || !p.geslaagd || p.model !== config.model || p.instructie !== INSTRUCTIE_VERSIE) return { aan: false, reden: 'testset_niet_geslaagd' };
+      if (!p || !p.geslaagd || !config.testModellen.includes(p.gekozenModel || p.model) || p.instructie !== INSTRUCTIE_VERSIE) return { aan: false, reden: 'testset_niet_geslaagd' };
     }
     if (!config.apiSleutel) return { aan: false, reden: 'geen_sleutel' };
     if (!kb) return { aan: false, reden: 'geen_kennisbank' };
@@ -122,10 +122,23 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
   }
 
   // ---- vraag ----
-  const OPNIEUW_MET_BRON = {
-    nl: 'Geef je antwoord opnieuw, maar onderbouw het met citaten uit de pagina\'s van websitegesprek.nl. Staat het niet op de pagina\'s, zeg dan dat je het niet zeker weet.',
-    en: 'Give your answer again, but support it with citations from the websitegesprek.nl pages. If it is not on the pages, say that you are not sure.'
-  };
+  // Besluit 467: per controle een concrete herstelopdracht (Nederlands of Engels). null = niet te herstellen.
+  function herstelVraag(reden, taal) {
+    const en = taal === 'en';
+    const r = String(reden || '');
+    const slot = en ? ' Support every claim with citations from the websitegesprek.nl pages. If it is not on the pages, say that you are not sure.' : " Onderbouw elke bewering met citaten uit de pagina's van websitegesprek.nl. Staat het niet op de pagina's, zeg dan dat je het niet zeker weet.";
+    if (r === 'geen_bronvermelding' || r === 'bron_onbekend') return (en ? 'Give your answer again.' : 'Geef je antwoord opnieuw.') + slot;
+    if (r.startsWith('getal_niet_in_kennisbank:') || r === 'valuta') {
+      const g = r.split(':')[1] || '';
+      return (en ? `The amount or number "${g}" is not on the pages. Give your answer again using only amounts, periods and numbers exactly as they appear on the pages, without converting anything.` : `Het bedrag of getal "${g}" staat niet op de pagina's. Geef je antwoord opnieuw met alleen bedragen, termijnen en aantallen precies zoals ze op de pagina's staan, zonder iets om te rekenen.`) + slot;
+    }
+    if (r.startsWith('risicowoord:')) {
+      const w = r.split(':')[1] || '';
+      return (en ? `Do not use the word "${w}" unless the page itself uses it, and make no promises. Give your answer again with only what the pages say.` : `Gebruik het woord "${w}" niet tenzij de pagina het zelf gebruikt, en doe geen toezeggingen. Geef je antwoord opnieuw met alleen wat er op de pagina's staat.`) + slot;
+    }
+    if (r === 'te_lang') return (en ? 'Give your answer again in at most 80 words.' : 'Geef je antwoord opnieuw in hooguit 80 woorden.') + slot;
+    return null;
+  }
   // Besluit 455, voorwaarde Juridisch 15 nov (1.2.3): het venster is altijd Nederlands; is de vraag niet in het Nederlands,
   // dan staat deze vaste zin boven het eerste antwoord in die taal, zodat ook wie geen Nederlands leest weet dat het een AI is.
   const MELDING_EN = MELDING_EN_TEKST;
@@ -151,17 +164,20 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     const beurten = JSON.parse(g.beurten);
     const berichten = [...beurten, { role: 'user', content: schoon }];
 
-    let uitkomst; let kostenMilliCent = 0; let gebruiktModel = config.model;
-    // Besluit 447: nadenken volgens de variant die de testset koos ('uit' of 'low'); de proef zet hem vast.
-    const denken = config.denkenVast || opslag.staat('proef:volledig', null)?.gekozen || config.denken;
+    // Besluit 447/467: model en nadenken volgens de variant die de testset koos; de proef zet ze vast.
+    const keuze = opslag.staat('proef:volledig', null);
+    const model = config.modelVast || keuze?.gekozenModel || config.model;
+    let uitkomst; let kostenMilliCent = 0; let gebruiktModel = model;
+    const denken = config.denkenVast || keuze?.gekozen || config.denken;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), config.apiTimeoutMs);
     try {
       let r;
       try {
-        r = await vraagClaude({ config, kb, beurten: berichten, model: config.model, denken, fetchFn, signaal: ctrl.signal });
+        r = await vraagClaude({ config, kb, beurten: berichten, model, denken, fetchFn, signaal: ctrl.signal });
       } catch (e) {
-        if (!(e instanceof ApiFout) || !config.terugvalModel || ['sleutel', 'tegoed'].includes(e.soort)) throw e;
+        // Besluit 467: Haiku valt alleen in bij drukte, een time-out of een netwerkfout van het gekozen model.
+        if (!(e instanceof ApiFout) || !config.terugvalModel || config.terugvalModel === model || !['druk', 'tijd', 'netwerk'].includes(e.soort)) throw e;
         gebruiktModel = config.terugvalModel;
         r = await vraagClaude({ config, kb, beurten: berichten, model: config.terugvalModel, denken, fetchFn, signaal: ctrl.signal });
       }
@@ -169,15 +185,17 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
       kostenMilliCent = boekKosten(kostenDollar(gebruiktModel, r.usage));
       controleerPiek();
       uitkomst = controleer(r, kb, { taal, kbTekst });
-      // Besluit 457: het model gaf wel een antwoord maar zonder bronvermelding. Eén keer opnieuw vragen, nu uitdrukkelijk
-      // met citaten uit de pagina's; pas als dat ook niet lukt, volgt de doorverwijzing. De controle blijft even streng.
-      if (uitkomst.reden === 'geen_bronvermelding' && String(r.tekst || '').trim()) {
+      // Besluit 457/467: eerst herstellen, dan pas doorverwijzen. Faalt een controle die het model zelf kan verbeteren
+      // (geen bron, een getal of woord dat niet op de pagina's staat, te lang), dan vragen we het één keer opnieuw met
+      // precies wat er mis was. De controle blijft even streng: pas als ook die poging faalt, volgt de doorverwijzing.
+      const herstel = uitkomst.vervangen && String(r.tekst || '').trim() ? herstelVraag(uitkomst.reden, taal) : null;
+      if (herstel) {
         try {
-          const nogmaals = [...berichten, { role: 'assistant', content: String(r.tekst).slice(0, 2000) }, { role: 'user', content: OPNIEUW_MET_BRON[taal === 'en' ? 'en' : 'nl'] }];
+          const nogmaals = [...berichten, { role: 'assistant', content: String(r.tekst).slice(0, 2000) }, { role: 'user', content: herstel }];
           const r2 = await vraagClaude({ config, kb, beurten: nogmaals, model: gebruiktModel, denken, fetchFn, signaal: ctrl.signal });
           kostenMilliCent += boekKosten(kostenDollar(gebruiktModel, r2.usage));
           const u2 = controleer(r2, kb, { taal, kbTekst });
-          if (!u2.vervangen) { uitkomst = { ...u2, reden: 'opnieuw_met_bron' }; r = r2; }
+          if (!u2.vervangen) { uitkomst = { ...u2, reden: 'hersteld:' + uitkomst.reden }; r = r2; }
         } catch (e) { /* tweede poging mislukt: de eerste uitkomst (doorverwijzing) blijft staan */ }
       }
       // Alleen voor de proef (besluit 443): waarom een antwoord is vervangen; de server stuurt dit nooit naar de bezoeker.
