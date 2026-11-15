@@ -479,3 +479,16 @@ test('467-reparatie: proef heeft geen kostenplafond, telt verbruik en stopt zich
   assert.equal(u.kosten.cache_lees, 28000 * u.kosten.aanroepen);
   assert.ok(u.kosten.euro_per_vraag > 0);
 });
+
+test('467-reparatie: kostenpiek pas vanaf € 1,50 per uur; de proef heeft geen piekgrens', async () => {
+  const { config } = opzet();
+  assert.equal(config.piekDrempelEuro, 1.5);
+  const src = readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8');
+  assert.match(src, /piekDrempelEuro: 1e6/);
+  // Proef met dure antwoorden: ruim boven € 0,50 en toch alle vragen gedraaid.
+  const api = nepApi({ usage: { input_tokens: 50, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 20000 } });
+  const c = laadConfig({ VRAAG_ACTIEF: '1', ANTHROPIC_API_KEY: 'sk-ant-test-' + 'x'.repeat(30), VRAAG_DATA_DIR: ':memory:' });
+  const u = await maakProef({ config: c, fetchFn: api, aantal: 5 })(kb);
+  assert.equal(u.totaal, 5);
+  assert.ok(u.kosten.euro > 0.5, String(u.kosten.euro));
+});

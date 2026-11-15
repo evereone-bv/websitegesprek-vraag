@@ -88,7 +88,8 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     let som = 0;
     for (let i = 1; i <= 24; i++) som += euro(opslag.stand(`kosten:hist:${uurVak(t) - i}`));
     const gem = som / 24;
-    if (nu >= 0.5 && nu > 3 * gem) zetUit('kostenpiek');
+    // Besluit 467: drempel meegeschaald met Sonnet (ca. € 0,0125 per aanroep); de proef zet hem uit (piekDrempelEuro 1e6).
+    if (nu >= config.piekDrempelEuro && nu > 3 * gem) zetUit('kostenpiek');
   }
 
   // >20% API-fouten in 15 minuten (bij minstens 10 aanroepen).

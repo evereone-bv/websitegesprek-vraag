@@ -110,7 +110,7 @@ export function maakProef({ config, fetchFn = fetch, aantal = 10, alleenFeit = t
     const gekozenModel = model || opslagLive?.staat('proef:volledig', null)?.gekozenModel || config.model;
     const cfg = { ...config, modus: 'aan', diagAltijd: true, denkenVast: variant, modelVast: gekozenModel, perIpUur: 1e6, perIpDag: 1e6, perTokenVragen: 1e6, tokensPerIpUur: 1e6, puzzelBits: 2,
       // Besluit 467: de proef heeft geen kostenplafond (de echte vraagbaak wel). Anders stopt hij halverwege met lege antwoorden.
-      plafondUurEuro: 1e6, plafondDagEuro: 1e6, serverVragenPerUur: 1e6 };
+      plafondUurEuro: 1e6, plafondDagEuro: 1e6, serverVragenPerUur: 1e6, piekDrempelEuro: 1e6 };
     // Verbruik van de antwoorden (niet de beoordelaar) bijhouden, zodat /proef laat zien of de cache werkt en wat een vraag kost.
     const verbruik = { aanroepen: 0, invoer: 0, cache_schrijf: 0, cache_lees: 0, uitvoer: 0, dollar: 0 };
     const { kostenDollar } = await import('./config.mjs');
