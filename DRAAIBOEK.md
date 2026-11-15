@@ -80,3 +80,30 @@ Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
 3. Harde grens: bij € 10 in een uur of € 30 op een dag tijdelijk "even niet beschikbaar" met WhatsApp en mail (een mens als terugval).
 4. Laatste vangnet bij Anthropic (eenmalig, door Raymond): Console › Settings › Workspaces › werkruimte van de vraagbaak › Spend limits: maandgrens en een melding ruim daaronder.
 5. Een kostenpiek zet de vraagbaak niet meer uit; uit gaat hij alleen bij een ongeldige sleutel, op tegoed, veel API-fouten of een rode dagelijkse proef.
+
+## G. Vragen naar rapportage (besluit 480)
+
+Ontwerp en voorwaarden: websitegesprek-reviewdossier-vraagbaak-register-v2 en -aanvulling (review V1–V13), Juridisch RV1–RV9.
+
+1. **Wat:** elke nacht om 03:17 stuurt `vraag-export.timer` (geïnstalleerd door `deploy/install.sh`) de regels van het register
+   die ouder zijn dan 1 uur ondertekend naar rapportage (`src/doorsturen.mjs`). Alleen de vaste velden (RV2), nooit IP-code, token
+   of gesprek. Rapportage bewaart 12 maanden. Stand zonder inhoud: `/healthz` › `export` (alarm bij 2 mislukte nachten of 7 dagen achterstand).
+2. **Staat uit tot:** (a) de proefrun langs de botcontrole van SiteGround is geslaagd (stap 4), (b) Juridisch schriftelijk akkoord gaf,
+   ook op de herbevestiging van 15 nov 21:30 (V8, V13, RV1). Zonder `VRAAG_EXPORT=aan` doet de timer niets.
+3. **Sleutel zetten (Raymond, nooit via chat):** TCP 22 tijdelijk open, dan `ssh -t -i ~/.ssh/websitegesprek_vraag root@vraag.websitegesprek.nl vraag-sleutel-zetten rapportage`.
+   De nieuwe sleutel (32 bytes) staat één keer op je scherm; zet hem in wp-config.php van rapportage als `WG_VRAAG_SLEUTEL`. TCP 22 weer dicht.
+4. **Proefrun (V8a):** in de container `node src/beheer.mjs stuur-proefregel`. Verwacht `"ok":true`. Komt `sgcaptcha` terug, dan houdt
+   de botcontrole van SiteGround de server tegen: export blijft uit en er komt eerst een nieuw besluit. De proefregel (id `T-PROEF…`) daarna
+   op rapportage wissen (stap 7).
+5. **Aanzetten (na akkoord):** `VRAAG_EXPORT=aan` in `/etc/vraag/vraag.env` en `systemctl restart vraag.service`.
+6. **Sleutel vervangen zonder uitval (S5):** in wp-config.php de huidige sleutel eerst ook als `WG_VRAAG_SLEUTEL_OUD` zetten, dan stap 3
+   (nieuwe sleutel als `WG_VRAAG_SLEUTEL`), na één geslaagde nacht `WG_VRAAG_SLEUTEL_OUD` weghalen. Halfjaarlijks, samen met de API-sleutel.
+7. **Eén regel wissen op verzoek van een bezoeker (RV5):** het verzoek komt via mail of WhatsApp, met het antwoordnummer uit het bericht (besluit 479).
+   (a) Vraagserver: in de container `node src/beheer.mjs wis-antwoord V-XXXXXX` (logt alleen het nummer). (b) Rapportage: de vaste actie
+   `wis_antwoord` van `evereone/vraagbaak-register` via de goedkeuringslink (account-plugin 1.9.0). Eerst (a), dan (b), zodat de regel niet terugkomt.
+8. **Wissen:** vraagserver na 30 dagen (met export: als verstuurd, uiterlijk na 35 dagen, dan geteld in het logboek); rapportage na 12 maanden.
+   Dit is de vastgelegde uitzondering op "nooit definitief verwijderen" (besluit 480, K4).
+9. **Terugdraaien (C6), in deze volgorde:** (a) eerst rapportage: account-plugin terug naar 1.8.5 via `evereone/orders action=account_update`
+   (binnen een uur, zonder FTP); (b) dan de vraagserver: `VRAAG_EXPORT` weghalen, of een commit die in `install.sh` `systemctl disable --now vraag-export.timer`
+   zet (voert de nachtelijke update uit). Na terugdraaien naar 1.8.5 binnen 30 dagen opnieuw aanzetten of de tabel op rapportage legen
+   met akkoord van Raymond (V12).

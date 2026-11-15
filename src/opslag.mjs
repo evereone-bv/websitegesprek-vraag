@@ -58,7 +58,8 @@ export function openOpslag(map) {
       const t = nu();
       db.prepare('DELETE FROM teller WHERE verloopt < ?').run(t);
       db.prepare('DELETE FROM gesprek WHERE verloopt < ?').run(t);
-      db.prepare('DELETE FROM register WHERE tijd < ?').run(t - registerDagen * 86_400_000);
+      // Register: zonder wisregel van buitenaf na registerDagen; met export regelt wisOudeRegels het (besluit 480).
+      if (registerDagen) db.prepare('DELETE FROM register WHERE tijd < ?').run(t - registerDagen * 86_400_000);
       db.prepare('DELETE FROM logboek WHERE tijd < ?').run(t - 30 * 86_400_000);
       db.prepare('DELETE FROM kennisbank WHERE actief = 0 AND versie NOT IN (SELECT versie FROM kennisbank ORDER BY gemaakt DESC LIMIT 5)').run();
     },
