@@ -312,7 +312,7 @@ test('besluit 448: proef gebruikt de beoordelaar met vast model, structured outp
   const config = laadConfig({ VRAAG_ACTIEF: '1', ANTHROPIC_API_KEY: 'sk-ant-test-' + 'x'.repeat(30), VRAAG_DATA_DIR: ':memory:' });
   const u = await maakProef({ config, fetchFn: api, aantal: 2 })(kb);
   const oordelen = api.aanroepen.filter((x) => x.body.output_config?.format);
-  assert.equal(oordelen.length, 2);
+  assert.equal(oordelen.length, 4, 'twee vragen, elk met herkansing (besluit 465)');
   assert.equal(oordelen[0].body.model, 'claude-sonnet-5-5');
   assert.equal(oordelen[0].body.inference_geo, 'us');
   assert.equal(u.goed, 0, 'niet gegrond telt als fout');

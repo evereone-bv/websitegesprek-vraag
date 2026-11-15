@@ -190,3 +190,34 @@ test('beoordeel (462): niet helder is een waarschuwing, geen fout; niet gegrond 
   const belofte = async () => ({ geldig: true, juist: true, gegrond: true, beantwoordt: true, toezegging: true, helder: true, toelichting: 'belooft korting' });
   assert.equal((await beoordeel({ ...feit, soort: 'valkuil' }, { antwoord: 'a', doorverwezen: false }, belofte)).goed, false);
 });
+
+test('besluit 465: gewone vraag krijgt één herkansing, valkuil niet', async () => {
+  const { draaiTestset } = await import('../src/proef.mjs');
+  const GOED = { antwoord: 'Je kunt 3 dagen gratis proberen.', bron: 'https://websitegesprek.nl/proberen/', doorverwezen: false };
+  const DOOR = { antwoord: 'Vraag het via WhatsApp.', bron: '', doorverwezen: true };
+  const items = [
+    { id: 'f1', soort: 'feit', vraag: 'proef?', verwacht: { doorverwezen: false } },
+    { id: 'v1', soort: 'valkuil', vraag: 'korting?', verwacht: { doorverwezen: false } },
+  ];
+  const tel = {};
+  const vraagFn = async (vraag) => { tel[vraag] = (tel[vraag] || 0) + 1; return tel[vraag] === 1 ? DOOR : GOED; };
+  const u = await draaiTestset(vraagFn, { items, herhaalValkuilen: 3 });
+  const f1 = u.uitslag.find((x) => x.id === 'f1');
+  const v1 = u.uitslag.find((x) => x.id === 'v1');
+  assert.equal(f1.goed, true, 'tweede poging goed: telt als goed');
+  assert.equal(f1.details.at(-1).herkansing, true);
+  assert.equal(tel['proef?'], 2);
+  assert.equal(v1.goed, false, 'valkuil: eerste van 3 fout blijft fout');
+  assert.equal(tel['korting?'], 3, 'valkuil 3x, geen extra herkansing');
+  // Twee keer fout blijft fout.
+  const altijdFout = await draaiTestset(async () => DOOR, { items: [items[0]] });
+  assert.equal(altijdFout.uitslag[0].goed, false);
+});
+
+test('besluit 465: testsleutel hangt af van servercode en testset, niet van venster of versienummer', async () => {
+  const { codeVingerafdruk } = await import('../src/server.mjs');
+  const src = readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8');
+  assert.match(codeVingerafdruk(), /^[0-9a-f]{12}$/);
+  assert.match(src, /const sleutel = \[CODE, /);
+  assert.ok(!/const sleutel = \[VERSIE/.test(src));
+});

@@ -1,7 +1,8 @@
 // HTTP-dienst van de vraagbaak achter Caddy (127.0.0.1:8090).
 // Nooit de API-sleutel tonen of loggen. Geen toegangslog met IP-adressen.
 import http from 'node:http';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { laadConfig } from './config.mjs';
 import { openOpslag } from './opslag.mjs';
 import { maakVraagbaak } from './vraagbaak.mjs';
@@ -9,6 +10,16 @@ import { herkomstToegestaan } from './beveiliging.mjs';
 
 const VERSIE = JSON.parse(readFileSync(new URL('../package.json', import.meta.url))).version;
 const START = new Date().toISOString();
+// Besluit 465: de testset draait alleen opnieuw als iets verandert dat de antwoorden raakt (servercode, testset,
+// kennisbank, model, instructie, beoordelaar), niet bij een wijziging aan het venster of het versienummer alleen.
+export function codeVingerafdruk() {
+  const h = createHash('sha256');
+  const map = new URL('./', import.meta.url);
+  for (const f of readdirSync(map).filter((n) => n.endsWith('.mjs')).sort()) h.update(f + '\0' + readFileSync(new URL(f, map)));
+  h.update(readFileSync(new URL('../testset/testset.json', import.meta.url)));
+  return h.digest('hex').slice(0, 12);
+}
+const CODE = codeVingerafdruk();
 const VENSTER_JS = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
 const MAX_BODY = 4096;
 
@@ -161,10 +172,10 @@ export function startTaken({ vraagbaak, opslag, config }) {
     const { INSTRUCTIE_VERSIE } = await import('./instructie.mjs');
     const { BEOORDELAAR_VERSIE } = await import('./beoordelaar.mjs');
     const { laadTestset } = await import('./proef.mjs');
-    const sleutel = [VERSIE, vraagbaak.kb.versie, config.model, INSTRUCTIE_VERSIE, laadTestset().versie, BEOORDELAAR_VERSIE].join('|');
+    const sleutel = [CODE, vraagbaak.kb.versie, config.model, INSTRUCTIE_VERSIE, laadTestset().versie, BEOORDELAAR_VERSIE].join('|');
     const oud = opslag.staat('proef:volledig', null);
     if (oud && oud.sleutel === sleutel && !oud.fout) return;
-    if (oud && Date.now() - Date.parse(oud.tijd) < 6 * 3_600_000 && oud.sleutel.split('|')[0] === VERSIE) return;
+    if (oud && Date.now() - Date.parse(oud.tijd) < 6 * 3_600_000 && oud.sleutel.split('|')[0] === CODE) return;
     // Besluit 447: beide nadenk-varianten volledig, met de beoordelaar (besluit 448).
     const varianten = {};
     for (const denken of ['low', 'uit']) {
@@ -173,7 +184,7 @@ export function startTaken({ vraagbaak, opslag, config }) {
         geslaagd: !!u.ok, fout: u.fout || '', ...(u.apiFout ? { apiFout: u.apiFout, bij_vraag: u.bijVraag } : {}),
         goed: u.goed, totaal: u.totaal, lat: u.lat, valkuilFout: u.valkuilFout, gemDuurMs: u.gemDuurMs,
         fouten: (u.uitslag || []).filter((x) => !x.goed).map((x) => ({ id: x.id, soort: x.soort, fouten: x.details.map((d) => d.fouten.join('; ')), antwoord: x.details[0]?.antwoord, oordeel: x.details.find((d) => d.oordeel)?.oordeel?.toelichting, diag: x.details.find((d) => d.diag)?.diag })),
-        antwoorden: (u.uitslag || []).map((x) => ({ id: x.id, goed: x.goed, antwoord: x.details[0]?.antwoord, oordeel: x.details[0]?.oordeel ? { juist: x.details[0].oordeel.juist, gegrond: x.details[0].oordeel.gegrond, beantwoordt: x.details[0].oordeel.beantwoordt, toezegging: x.details[0].oordeel.toezegging, helder: x.details[0].oordeel.helder, toelichting: x.details[0].oordeel.toelichting } : null, blokken: x.details[0]?.diag?.blokken })),
+        antwoorden: (u.uitslag || []).map((x) => ({ id: x.id, goed: x.goed, antwoord: x.details.at(-1)?.antwoord, herkansing: !!x.details.at(-1)?.herkansing, oordeel: x.details.at(-1)?.oordeel ? { juist: x.details.at(-1).oordeel.juist, gegrond: x.details.at(-1).oordeel.gegrond, beantwoordt: x.details.at(-1).oordeel.beantwoordt, toezegging: x.details.at(-1).oordeel.toezegging, helder: x.details.at(-1).oordeel.helder, toelichting: x.details.at(-1).oordeel.toelichting } : null, blokken: x.details.at(-1)?.diag?.blokken })),
       };
       opslag.log('proef', `volledige testset ${config.model} denken ${denken}: ${u.goed}/${u.totaal}, valkuilen fout ${u.valkuilFout}${u.fout ? ', fout ' + u.fout : ''}`);
     }
@@ -181,7 +192,7 @@ export function startTaken({ vraagbaak, opslag, config }) {
     const g = gekozen ? varianten[gekozen] : {};
     const fout = Object.values(varianten).every((v) => v.fout) ? Object.values(varianten).map((v) => v.fout).join(' | ') : '';
     opslag.zetStaat('proef:volledig', {
-      sleutel, tijd: new Date().toISOString(), model: config.model, instructie: INSTRUCTIE_VERSIE, beoordelaar: `${config.beoordelaarModel} ${BEOORDELAAR_VERSIE}`,
+      sleutel, versie: VERSIE, tijd: new Date().toISOString(), model: config.model, instructie: INSTRUCTIE_VERSIE, beoordelaar: `${config.beoordelaarModel} ${BEOORDELAAR_VERSIE}`,
       gekozen, geslaagd: !!g.geslaagd, fout, goed: g.goed, totaal: g.totaal, lat: g.lat, valkuilFout: g.valkuilFout, gemDuurMs: g.gemDuurMs,
       varianten,
     });

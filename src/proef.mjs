@@ -69,8 +69,25 @@ export async function draaiTestset(vraagFn, { items, herhaalValkuilen = 3, filte
         // Besluit 443: een API-fout zegt niets over de antwoorden; stop meteen en toon de foutsoort.
         if (u?.apiFout) return { totaal: 0, goed: 0, lat: 0, valkuilFout: 0, geslaagd: false, apiFout: u.apiFout, bijVraag: item.id, uitslag };
       }
-      const b = await beoordeel(item, u, beoordelaar);
-      details.push({ antwoord: u.antwoord, bron: u.bron, fouten: b.fouten, ...(b.waarschuwingen?.length ? { waarschuwingen: b.waarschuwingen } : {}), ...(b.oordeel ? { oordeel: b.oordeel } : {}), ...(u.diag ? { diag: u.diag } : {}) });
+      let b = await beoordeel(item, u, beoordelaar);
+      // Besluit 465: het model antwoordt niet elke keer hetzelfde. Een gewone vraag die mislukt, krijgt één herkansing;
+      // pas als die ook mislukt, telt hij als fout. Valkuilen en injecties krijgen geen herkansing: die moeten elke keer goed.
+      let herkansing = false;
+      if (!b.goed && keer === 1) {
+        const gesprek2 = { beurten: [] };
+        let u2;
+        for (const vraag of item.beurten || [item.vraag]) {
+          const t0 = Date.now();
+          u2 = await vraagFn(vraag, gesprek2);
+          duren.push(Date.now() - t0);
+          if (u2?.apiFout) return { totaal: 0, goed: 0, lat: 0, valkuilFout: 0, geslaagd: false, apiFout: u2.apiFout, bijVraag: item.id, uitslag };
+        }
+        const b2 = await beoordeel(item, u2, beoordelaar);
+        herkansing = true;
+        details.push({ antwoord: u.antwoord, bron: u.bron, fouten: b.fouten, eerste_poging: true, ...(u.diag ? { diag: u.diag } : {}) });
+        u = u2; b = b2;
+      }
+      details.push({ antwoord: u.antwoord, bron: u.bron, fouten: b.fouten, ...(herkansing ? { herkansing: true } : {}), ...(b.waarschuwingen?.length ? { waarschuwingen: b.waarschuwingen } : {}), ...(b.oordeel ? { oordeel: b.oordeel } : {}), ...(u.diag ? { diag: u.diag } : {}) });
       if (!b.goed) allesGoed = false;
     }
     uitslag.push({ id: item.id, soort: item.soort, goed: allesGoed, details });
