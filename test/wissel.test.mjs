@@ -53,7 +53,7 @@ test('7.2 scenario 2: andere sleutel en geslaagd → wissel, vorige bewaard, goe
   assert.match(o.lees('img/websitegesprek-vraag_vorige'), /sleutel=aaaa/);
   assert.ok(existsSync(join(o.v, 'goedgekeurd', 'bbbb.json')));
   assert.match(readFileSync(join(o.v, 'goedkeuring-live.json'), 'utf8'), /"sleutel":"bbbb"/);
-  assert.match(o.lees('log'), /--network vraagnet .*--read-only .*--cap-drop=ALL .*--pids-limit=256 .*--memory=384m .*--oom-score-adj=1000/, 'W3/V12: testcontainer afgeschermd');
+  assert.match(o.lees('log'), /--network vraagnet .*--read-only .*--cap-drop=ALL .*--pids-limit=256 .*--memory=224m .*--oom-score-adj=1000/, 'W3/V12: testcontainer afgeschermd');
   assert.match(o.lees('log'), /VRAAG_TEST_PLAFOND=6\.00/, 'V13: 3 x € 2, minimaal € 5');
   assert.equal(o.stand().nieuwe_versie, 'live');
 });
@@ -126,7 +126,7 @@ test('W5: technische fout → bezig (geen storing), herhaling na 15 min, 1 uur e
 });
 
 test('V12: te weinig vrij geheugen → testcontainer start niet; live blijft', () => {
-  const o = omgeving({ geheugenMb: 500 });
+  const o = omgeving({ geheugenMb: 470 });
   o.live('aaaa');
   o.image('kandidaat', { sleutel: '2222', test: 'geslaagd' });
   o.draai('update');
