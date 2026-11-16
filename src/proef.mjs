@@ -274,15 +274,17 @@ export function testGrens(config, items = laadTestset(config.dataMap).items) {
   return { maxVragen: Math.ceil(perVariant * combinaties(config).length * 1.2), maxEuro: config.testPlafondEuro };
 }
 
-// W5 en V13: uitkomst van een volledige testrun. 'geslaagd' alleen met een geslaagde variant van een testmodel.
-// Kostengrens bereikt = 'gezakt' (reden kostengrens_test, geen herhaling). API-, netwerk- of tegoedfout zonder geslaagde
-// variant = 'fout' (technisch; het wisselscript probeert het hooguit 3 keer opnieuw). Anders 'gezakt' (inhoudelijk).
+// W5, V13 en P2 (codecontrole PR #27): uitkomst van een volledige testrun. 'geslaagd' alleen met een geslaagde variant
+// van een testmodel. Kostengrens bereikt = 'gezakt' (reden kostengrens_test, geen herhaling). Is minstens één variant
+// zonder technische fout afgerond en geen variant geslaagd, dan 'gezakt' (inhoudelijk; geen herhaling, C7 van 546).
+// Alleen als geen enkele variant zonder technische fout is afgerond: 'fout' (het wisselscript herhaalt hooguit 3 keer).
 export function uitkomstVan(varianten, { grensBereikt = false } = {}) {
   const naam = kiesVariant(varianten);
   const g = naam ? varianten[naam] : null;
   if (g && g.geslaagd) return { uitkomst: 'geslaagd', reden: '' };
   if (grensBereikt) return { uitkomst: 'gezakt', reden: 'kostengrens_test' };
-  if (Object.values(varianten).some((v) => v && v.fout)) return { uitkomst: 'fout', reden: 'technisch' };
+  const lijst = Object.values(varianten).filter(Boolean);
+  if (lijst.length && lijst.every((v) => v.fout)) return { uitkomst: 'fout', reden: 'technisch' };
   return { uitkomst: 'gezakt', reden: 'inhoudelijk' };
 }
 

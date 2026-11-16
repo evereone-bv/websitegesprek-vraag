@@ -78,14 +78,16 @@ test('W5 en V13: uitkomst geslaagd, gezakt (inhoudelijk of kostengrens) of fout 
   const f = { model: 'claude-sonnet-5-5', denken: 'uit', geslaagd: false, fout: 'api_overig 500' };
   assert.equal(uitkomstVan({ a: g, b: z }).uitkomst, 'geslaagd');
   assert.deepEqual(uitkomstVan({ a: z }), { uitkomst: 'gezakt', reden: 'inhoudelijk' });
-  assert.deepEqual(uitkomstVan({ a: z, b: f }), { uitkomst: 'fout', reden: 'technisch' });
+  // P2: één variant inhoudelijk gezakt, een andere met een technische fout → gezakt, geen herhaling.
+  assert.deepEqual(uitkomstVan({ a: z, b: f }), { uitkomst: 'gezakt', reden: 'inhoudelijk' });
+  assert.deepEqual(uitkomstVan({ b: f, c: { ...f, denken: 'low' } }), { uitkomst: 'fout', reden: 'technisch' }, 'alleen technische fouten → fout');
   assert.deepEqual(uitkomstVan({ a: z, b: f }, { grensBereikt: true }), { uitkomst: 'gezakt', reden: 'kostengrens_test' });
 });
 
 test('V13: een testrun die de grens bereikt, stopt en geeft gezakt (kostengrens_test)', async () => {
   const config = laadConfig({ ...basisEnv, ANTHROPIC_API_KEY: 'sk-ant-test-' + 'x'.repeat(30) });
   const g = testGrens(config);
-  assert.ok(g.maxVragen > 0 && g.maxEuro === 5);
+  assert.ok(g.maxVragen > 0 && g.maxEuro === 20, 'P1: standaard € 20');
   let aanroepen = 0;
   const api = nepApi(); const tel = async (u, o) => { aanroepen++; return api(u, o); };
   const u = await volledigeTestset({ config, kb, fetchFn: tel, grens: { maxVragen: 3, maxEuro: 5 } });

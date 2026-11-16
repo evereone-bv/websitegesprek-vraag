@@ -65,7 +65,7 @@ export function laadConfig(env = process.env) {
     // de poort die deploy/wissel.sh bijhoudt, en de kostengrens per testrun (V13, W3; het wisselscript zet hem per run).
     goedkeuringPad: env.VRAAG_GOEDKEURING || '/goedkeuring.json',
     poortMap: env.VRAAG_POORT || '/poort',
-    testPlafondEuro: getal('VRAAG_TEST_PLAFOND', 5),
+    testPlafondEuro: getal('VRAAG_TEST_PLAFOND', 20), // P1: schatting volledige run ca. € 7,50 (dossier 12.8)
   };
 }
 

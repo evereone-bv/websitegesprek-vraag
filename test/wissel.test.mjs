@@ -54,8 +54,24 @@ test('7.2 scenario 2: andere sleutel en geslaagd → wissel, vorige bewaard, goe
   assert.ok(existsSync(join(o.v, 'goedgekeurd', 'bbbb.json')));
   assert.match(readFileSync(join(o.v, 'goedkeuring-live.json'), 'utf8'), /"sleutel":"bbbb"/);
   assert.match(o.lees('log'), /--network vraagnet .*--read-only .*--cap-drop=ALL .*--pids-limit=256 .*--memory=224m .*--oom-score-adj=1000/, 'W3/V12: testcontainer afgeschermd');
-  assert.match(o.lees('log'), /VRAAG_TEST_PLAFOND=6\.00/, 'V13: 3 x € 2, minimaal € 5');
+  assert.match(o.lees('log'), /VRAAG_TEST_PLAFOND=20\.00/, 'P1: 3 x € 2 = € 6, ondergrens € 20 zonder regel in vraag.env');
   assert.equal(o.stand().nieuwe_versie, 'live');
+});
+
+test('P1: ondergrens uit vraag.env (VRAAG_TEST_PLAFOND_MIN); 3 x de vorige kosten als dat hoger is', () => {
+  const o = omgeving();
+  o.live('aaaa');
+  writeFileSync(o.env.VRAAG_ENV, 'ANDERS=1\nVRAAG_TEST_PLAFOND_MIN=30\n');
+  o.image('kandidaat', { sleutel: 'abab', test: 'geslaagd' });
+  o.draai('update');
+  assert.match(o.lees('log'), /VRAAG_TEST_PLAFOND=30\.00/);
+  const o2 = omgeving();
+  o2.image('live', { sleutel: 'aaaa' });
+  writeFileSync(join(o2.v, 'goedkeuring-live.json'), '{"sleutel":"aaaa","geslaagd":true,"kosten_euro":12.5}');
+  writeFileSync(o2.env.VRAAG_ENV, 'VRAAG_TEST_PLAFOND_MIN=15\n');
+  o2.image('kandidaat', { sleutel: 'acac', test: 'geslaagd' });
+  o2.draai('update');
+  assert.match(o2.lees('log'), /VRAAG_TEST_PLAFOND=37\.50/);
 });
 
 test('7.2 scenario 3 en V15b: andere sleutel en gezakt → live blijft; de volgende nacht niet opnieuw getest', () => {

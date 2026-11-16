@@ -58,7 +58,7 @@ Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
   `websitegesprek-vraag:kandidaat` (`vraag-update.timer`). Daarna beslist `deploy/wissel.sh` (besluit 546.1, blauw-groen):
   1. sleutel van de kandidaat gelijk aan die van live (de antwoorden veranderen niet): direct live;
   2. andere sleutel: volledige testset in de testcontainer `vraag-kandidaat` (netwerk vraagnet, alleen-lezen, 224 MB; start alleen bij minstens 480 MB beschikbaar geheugen,
-     hooguit 90 minuten, kostengrens 3 x de vorige run, minimaal € 5); live blijft intussen antwoorden;
+     hooguit 90 minuten, kostengrens 3 x de vorige run, minimaal `VRAAG_TEST_PLAFOND_MIN` uit vraag.env, zonder die regel € 20); live blijft intussen antwoorden;
   3. geslaagd: eerst een startcontrole (`vraag-startcontrole`), dan wordt de oude live `websitegesprek-vraag:vorige` en
      de kandidaat `websitegesprek-vraag:live`; start live niet binnen 60 seconden, dan vanzelf terug naar de vorige;
   4. gezakt: live blijft; `"nieuwe_versie":"gezakt"` op /healthz (UptimeRobot mailt); dezelfde sleutel wordt niet

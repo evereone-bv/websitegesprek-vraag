@@ -60,11 +60,15 @@ sleutel_in() { # goedkeuringsbestand → sleutel
 
 geheugen_vrij_mb() { awk '/^MemAvailable:/ { print int($2 / 1024) }' "$MEMINFO"; }
 
-# V13/W3: kostengrens per run: 3 keer de kosten van de laatste geslaagde run, minimaal € 5.
+# V13/W3 en P1 (codecontrole PR #27): kostengrens per run = max(3 x kosten_euro van de live goedkeuring,
+# VRAAG_TEST_PLAFOND_MIN). De ondergrens komt uit vraag.env; zonder die regel € 20 (minstens 2 x de geschatte
+# kosten van een volledige run inclusief de beoordelaar, ca. € 7,50; berekening in dossier 12.8).
+PLAFOND_MIN_STANDAARD=20
 plafond() {
-  local k
+  local k min
   k="$(grep -o '"kosten_euro":[0-9.]*' "$VAR/goedkeuring-live.json" 2>/dev/null | cut -d: -f2 || true)"
-  awk -v k="${k:-0}" 'BEGIN { p = 3 * k; if (p < 5) p = 5; printf "%.2f", p }'
+  min="$(grep -s '^VRAAG_TEST_PLAFOND_MIN=' "$ENVBESTAND" | tail -1 | cut -d= -f2 | tr -cd '0-9.' || true)"
+  awk -v k="${k:-0}" -v m="${min:-$PLAFOND_MIN_STANDAARD}" 'BEGIN { if (m + 0 <= 0) m = 20; p = 3 * k; if (p < m) p = m; printf "%.2f", p }'
 }
 
 # Volledige testset in de testcontainer (W3). Geeft 0 geslaagd, 1 gezakt, 2 technische fout.
