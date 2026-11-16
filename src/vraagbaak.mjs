@@ -1,10 +1,9 @@
 // Kern van de vraagbaak: aan/uit, grenzen, gesprekken, antwoorden met controle, register, kennisbank.
 import { schoonOp, taal as taalVan } from './schoon.mjs';
 import { controleer, DOORVERWIJZING } from './controle.mjs';
-import { vraagClaude, ApiFout } from './claude.mjs';
-import { kostenDollar, DOLLAR_NAAR_EURO } from './config.mjs';
+import { vraagClaude, roepClaude, ApiFout } from './claude.mjs';
+import { kostenDollar, DOLLAR_NAAR_EURO, PRIJZEN } from './config.mjs';
 import { kennisbankAlsTekst, bouwKennisbank } from './kennisbank.mjs';
-import { INSTRUCTIE_VERSIE } from './instructie.mjs';
 import { exportStatus } from './doorsturen.mjs';
 import { geheim as haalGeheim, ipHash, maakPuzzel, controleerPuzzel, nieuwToken, antwoordId } from './beveiliging.mjs';
 
@@ -21,7 +20,9 @@ export const V1 = {
   en: "You're chatting with an AI assistant (Claude). Answers may contain mistakes; what counts is on our website and in our terms. Don't share personal data; prefer a human? Ask us via WhatsApp or email.",
 };
 
-export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Date.now() }) {
+// Besluit 546.1: 'goedkeuring' geeft het goedkeuringsbestand van de live versie (W1: model, variant, varianten), 'poort'
+// de stand van de nieuwe versie ({ nieuwe_versie }) en 'sleutel' de sleutel van deze versie met deze instellingen (W2).
+export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Date.now(), goedkeuring = () => null, poort = () => ({ nieuwe_versie: 'geen' }), sleutel = () => '' }) {
   const geheim = haalGeheim(opslag);
   let kb = null; // { versie, paginas, algemeen }
   let kbTekst = '';
@@ -42,15 +43,18 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
   }
   laadActieveKennisbank();
 
-  // ---- aan/uit (besluit 400) ----
+  // ---- aan/uit (besluit 400, aangepast door 546.1) ----
+  // De vraagbaak staat alleen uit als hij bewust is uitgezet (instelling, schakelaar op de site, beheeropdracht), bij
+  // een kostengrens, zonder kennisbank, of bij een sleutel- of tegoedfout (die herstelt vanzelf, W6). De testset zet hem
+  // niet meer uit: live draait altijd een versie, en een nieuwe versie gaat pas live na een geslaagde testset (W1).
   function status() {
     const uit = opslag.staat('uit', null); // { reden, sinds } of null
     if (config.modus === 'uit') return { aan: false, reden: 'handmatig_uit' };
     if (config.modus === 'auto') {
+      // V15e: de laatst gelezen stand staat in de opslag en overleeft een herstart. Nog nooit gelezen = uit.
+      // Is de site onleesbaar, dan blijft de laatste stand gelden (4b.4); na 2 uur wel 'storing' in de bewaking.
       const site = opslag.staat('site:aan', null);
-      if (!site || !site.aan || klok() - site.tijd > 2 * UUR) return { aan: false, reden: 'schakelaar_site_uit' };
-      const p = opslag.staat('proef:volledig', null);
-      if (!p || !p.geslaagd || !config.testModellen.includes(p.gekozenModel || p.model) || p.instructie !== INSTRUCTIE_VERSIE) return { aan: false, reden: 'testset_niet_geslaagd' };
+      if (!site || !site.aan) return { aan: false, reden: 'schakelaar_site_uit' };
     }
     if (!config.apiSleutel) return { aan: false, reden: 'geen_sleutel' };
     if (!kb) return { aan: false, reden: 'geen_kennisbank' };
@@ -60,6 +64,33 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     if (euro(opslag.stand(`kosten:dag:${dagVak(t)}`)) >= config.plafondDagEuro) return { aan: false, reden: 'dagplafond', tijdelijk: true };
     if (opslag.stand(`server:uur:${uurVak(t)}`) >= config.serverVragenPerUur) return { aan: false, reden: 'serverplafond', tijdelijk: true };
     return { aan: true };
+  }
+  // W2: past het goedkeuringsbestand niet bij deze versie en deze instellingen, dan antwoordt de vraagbaak gewoon door
+  // (elk antwoord gaat door de controle), maar /healthz meldt 'ongetest' en 'storing'.
+  function nieuweVersie() {
+    const g = goedkeuring();
+    if (!g || !g.sleutel || g.sleutel !== sleutel()) return 'ongetest';
+    return poort().nieuwe_versie || 'geen';
+  }
+  const BEWUST_UIT = ['handmatig_uit', 'handmatig', 'schakelaar_site_uit'];
+  const TIJDELIJK = ['uurplafond', 'dagplafond', 'serverplafond'];
+  // W11 en 4c.1: 'storing' bij uit zonder bewuste reden, een kostengrens van langer dan 1 uur, een rode dagproef,
+  // veel API-fouten, een site die langer dan 2 uur onleesbaar is, en een ongeteste versie. Alleen vaste woorden.
+  function bewaking() {
+    const t = klok();
+    const s = status();
+    if (!s.aan && TIJDELIJK.includes(s.reden)) {
+      const sinds = opslag.staat('plafond:sinds', null);
+      if (!sinds || sinds.reden !== s.reden) opslag.zetStaat('plafond:sinds', { reden: s.reden, tijd: t });
+      else if (t - sinds.tijd > UUR) return 'storing';
+    } else if (opslag.staat('plafond:sinds', null)) opslag.zetStaat('plafond:sinds', null);
+    if (!s.aan && !BEWUST_UIT.includes(s.reden) && !TIJDELIJK.includes(s.reden)) return 'storing';
+    if (nieuweVersie() === 'ongetest') return 'storing';
+    if (opslag.staat('proef:laatste', null)?.ok === false) return 'storing';
+    if (foutpercentageHoog()) return 'storing';
+    const site = opslag.staat('site:aan', null);
+    if (config.modus === 'auto' && site && t - site.tijd > 2 * UUR) return 'storing';
+    return 'ok';
   }
   function zetUit(reden) {
     if (!opslag.staat('uit', null)) {
@@ -112,13 +143,38 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     }
   }
 
-  // >20% API-fouten in 15 minuten (bij minstens 10 aanroepen).
+  // >20% API-fouten in 15 minuten (bij minstens 10 aanroepen). Besluit 546.1 (W7): zet de vraagbaak niet meer uit;
+  // elke vraag met een API-fout krijgt al de doorverwijzing. Wel 'storing' in de bewaking (dit en het vorige kwartier).
   function boekApi(ok) {
+    const vak = Math.floor(klok() / KWARTIER);
+    opslag.tel(`api:tot:${vak}`, 1, 2 * KWARTIER);
+    if (!ok) opslag.tel(`api:fout:${vak}`, 1, 2 * KWARTIER);
+  }
+  function foutpercentageHoog() {
+    const vak = Math.floor(klok() / KWARTIER);
+    return [vak, vak - 1].some((v) => { const tot = opslag.stand(`api:tot:${v}`); return tot >= 10 && opslag.stand(`api:fout:${v}`) / tot > 0.2; });
+  }
+
+  // W6: herstel na een sleutel- of tegoedfout. Hooguit één kleine aanroep per 15 minuten (goedkoopste testmodel,
+  // max_tokens 1, tijdslimiet 5 s, kosten geboekt); lukt hij, dan gaat de vraagbaak vanzelf weer aan.
+  async function herstelPoging() {
+    const uit = opslag.staat('uit', null);
+    if (!uit || !['sleutelfout', 'tegoed'].includes(uit.reden)) return { gedaan: false };
     const t = klok();
-    const vak = Math.floor(t / KWARTIER);
-    const totaal = opslag.tel(`api:tot:${vak}`, 1, KWARTIER);
-    const fout = ok ? opslag.stand(`api:fout:${vak}`) : opslag.tel(`api:fout:${vak}`, 1, KWARTIER);
-    if (totaal >= 10 && fout / totaal > 0.2) zetUit('foutpercentage');
+    if (opslag.staat('herstel:laatst', 0) > t - KWARTIER) return { gedaan: false };
+    opslag.zetStaat('herstel:laatst', t);
+    const model = [...config.testModellen].sort((a, b) => (PRIJZEN[a]?.invoer ?? 99) - (PRIJZEN[b]?.invoer ?? 99))[0];
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const d = await roepClaude({ config, body: { model, max_tokens: 1, inference_geo: config.inferenceGeo, messages: [{ role: 'user', content: 'ok' }] }, fetchFn, signaal: ctrl.signal });
+      boekKosten(kostenDollar(model, d?.usage));
+      zetAan();
+      opslag.log('beheer', `vraagbaak vanzelf weer aan na ${uit.reden}`);
+      return { gedaan: true, aan: true };
+    } catch (e) {
+      return { gedaan: true, aan: false };
+    } finally { clearTimeout(timer); }
   }
 
   // ---- puzzel en token (besluit 401, VB4) ----
@@ -186,7 +242,7 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     const berichten = [...beurten, { role: 'user', content: schoon }];
 
     // Besluit 447/467: model en nadenken volgens de variant die de testset koos; de proef zet ze vast.
-    const keuze = opslag.staat('proef:volledig', null);
+    const keuze = goedkeuring();
     let model = config.modelVast || keuze?.gekozenModel || config.model;
     let denken = config.denkenVast || keuze?.gekozen || config.denken;
     // Besluit 468: in de zuinige stand het goedgekeurde goedkopere model (alleen als het verschilt en de testset haalde).
@@ -278,7 +334,8 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
   }
 
   // Schakelaar op websitegesprek.nl lezen: het blok id="wg-vraag-blok" met data-aan="1" (besluit 400).
-  // Lukt lezen niet, dan blijft de vorige stand staan; na 2 uur zonder bevestiging telt hij als uit (veilige kant).
+  // Lukt lezen niet, dan blijft de vorige stand staan (546.1, 4b.4); na 2 uur zonder bevestiging 'storing' in de bewaking.
+  // Noodroute als de site onleesbaar is en de vraagbaak toch uit moet: beheeropdracht 'uit' (DRAAIBOEK).
   async function leesSchakelaar() {
     try {
       const res = await fetchFn(config.siteUrl, { redirect: 'manual', headers: { 'User-Agent': 'websitegesprek-vraagbaak/schakelaar' } });
@@ -314,6 +371,8 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     const t = klok();
     return {
       aan: s.aan, reden: s.reden || '', modus: config.modus,
+      // Besluit 546.1 (W11, 4c.1): voor UptimeRobot. Alleen vaste woorden, nooit foutteksten.
+      bewaking: bewaking(), nieuwe_versie: nieuweVersie(),
       schakelaar_site: opslag.staat('site:aan', null)?.aan ?? null,
       testmodus: !!opslag.staat('site:aan', null)?.test,
       // Alleen een aantal, nooit inhoud: zo ziet de dagelijkse controle of er in testmodus vragen van anderen binnenkomen (421).
@@ -322,7 +381,7 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
       kennisbank: kb ? kb.versie : null,
       kosten_vandaag_euro: Math.round(euro(opslag.stand(`kosten:dag:${dagVak(t)}`)) * 100) / 100,
       // Besluit 468: budget en zuinige stand, alleen getallen.
-      budget: (() => { const z = zuinig(); return { uur_euro: z.uur_euro, dag_euro: z.dag_euro, plafond_uur_euro: config.plafondUurEuro, plafond_dag_euro: config.plafondDagEuro, zuinig: z.aan, zuinig_reden: z.reden, zuinig_model: z.aan ? (zuinigModel(opslag.staat('proef:volledig', null))?.model || null) : null }; })(),
+      budget: (() => { const z = zuinig(); return { uur_euro: z.uur_euro, dag_euro: z.dag_euro, plafond_uur_euro: config.plafondUurEuro, plafond_dag_euro: config.plafondDagEuro, zuinig: z.aan, zuinig_reden: z.reden, zuinig_model: z.aan ? (zuinigModel(goedkeuring())?.model || null) : null }; })(),
       vragen_dit_uur: opslag.stand(`server:uur:${uurVak(t)}`),
       // Besluit 461: snelheid van echte antwoorden (zonder proef), alleen getallen.
       ...(() => {
@@ -336,5 +395,5 @@ export function maakVraagbaak({ config, opslag, fetchFn = fetch, klok = () => Da
     };
   }
 
-  return { status, zetUit, zetAan, leesSchakelaar, wisRegister, puzzel, token, vraag, duim, ververs, gezondheid, zetKennisbank, laadActieveKennisbank, get kb() { return kb; } };
+  return { status, bewaking, nieuweVersie, herstelPoging, zetUit, zetAan, leesSchakelaar, wisRegister, puzzel, token, vraag, duim, ververs, gezondheid, zetKennisbank, laadActieveKennisbank, get kb() { return kb; } };
 }

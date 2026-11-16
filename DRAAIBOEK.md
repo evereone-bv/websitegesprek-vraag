@@ -30,11 +30,15 @@ API-sleutel `vraag-websitegesprek-server` (werkruimte vraagbaak) gezet; verloopt
 
 ## B2. Vraagbaak aan- en uitzetten voor bezoekers (zonder SSH, besluit 400)
 
-De server is aan als alle drie kloppen (modus "auto", standaard):
-1. de volledige testset voor het huidige model en de huidige instructie is geslaagd (https://vraag.websitegesprek.nl/proef);
-2. het blok op websitegesprek.nl heeft `data-aan="1"` (de server leest dat elke 15 minuten; Claude zet het met een
-   werkbon na 'publiceren' van Raymond);
-3. er is geen storing (sleutel, tegoed, foutpercentage, kostenpiek, rode dagproef) en geen plafond bereikt.
+De server is aan als beide kloppen (modus "auto", standaard; besluit 546.1):
+1. het blok op websitegesprek.nl heeft `data-aan="1"` (de server leest dat elke 15 minuten; Claude zet het met een
+   werkbon na 'publiceren' van Raymond). Is de site onleesbaar, dan blijft de laatst gelezen stand gelden (die staat in
+   de opslag en overleeft een herstart); na 2 uur onleesbaar meldt /healthz `"bewaking":"storing"`. Nog nooit gelezen = uit;
+2. er is geen sleutel- of tegoedfout (herstelt vanzelf: elke 15 minuten één kleine aanroep) en geen kostengrens bereikt.
+
+De testset, een rode dagproef en veel API-fouten zetten de vraagbaak niet meer uit (546.1): live draait altijd een
+goedgekeurde versie (zie C), een vraag met een API-fout krijgt de doorverwijzing, en /healthz meldt `"bewaking":"storing"`
+(UptimeRobot mailt dan).
 
 Testmodus (besluit 421): `data-aan="1"` plus `data-zichtbaar="test"` = server aan, maar bezoekers zien de chat alleen met
 `?vraagbaak=test` in het adres. Voor de livegang `data-zichtbaar` weghalen.
@@ -44,12 +48,30 @@ maakt de server het register één keer leeg (testvragen weg); zie `register_gew
 ook: `node src/beheer.mjs wis-register` in de container.
 
 Uitzetten: `data-aan="0"` op de site (binnen 15 minuten uit op de server; de knop verdwijnt meteen).
-Noodgeval: `VRAAG_ACTIEF=0` in `/etc/vraag/vraag.env` zet hem altijd uit (vraagt SSH).
+Noodroute als de site onleesbaar is (546.1, W12e): `docker exec vraag node src/beheer.mjs uit` op de server (vraagt SSH);
+weer aan: `docker exec vraag node src/beheer.mjs aan`. Noodgeval: `VRAAG_ACTIEF=0` in `/etc/vraag/vraag.env` zet hem altijd uit (vraagt SSH).
 Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
 
 ## C. Bijwerken
 
-- Automatisch elke nacht 04:37 (besluit 449, was wekelijks): code uit GitHub (main), nieuwste basis-image, herstart (`vraag-update.timer`).
+- Automatisch elke nacht 04:37 (besluit 449, was wekelijks): code uit GitHub (main) en nieuwste basis-image, gebouwd als
+  `websitegesprek-vraag:kandidaat` (`vraag-update.timer`). Daarna beslist `deploy/wissel.sh` (besluit 546.1, blauw-groen):
+  1. sleutel van de kandidaat gelijk aan die van live (de antwoorden veranderen niet): direct live;
+  2. andere sleutel: volledige testset in de testcontainer `vraag-kandidaat` (netwerk vraagnet, alleen-lezen, 384 MB,
+     hooguit 90 minuten, kostengrens 3 x de vorige run, minimaal € 5); live blijft intussen antwoorden;
+  3. geslaagd: eerst een startcontrole (`vraag-startcontrole`), dan wordt de oude live `websitegesprek-vraag:vorige` en
+     de kandidaat `websitegesprek-vraag:live`; start live niet binnen 60 seconden, dan vanzelf terug naar de vorige;
+  4. gezakt: live blijft; `"nieuwe_versie":"gezakt"` op /healthz (UptimeRobot mailt); dezelfde sleutel wordt niet
+     opnieuw getest. Een technische fout (API, netwerk, tijd, geheugen) wordt na 15 minuten, 1 uur en 4 uur herhaald.
+  Bestanden: `/var/lib/vraag/goedgekeurd/<sleutel>.json` (goedkeuring per sleutel), `/var/lib/vraag/gezakt/<sleutel>.json`,
+  `/var/lib/vraag/goedkeuring-live.json` (in de live container alleen-lezen als `/goedkeuring.json`: model en variant),
+  `/var/lib/vraag/poort/stand.json`. Elke 15 minuten (`vraag-poort.timer`) ook: geplande herhalingen, en een testrun als
+  de instellingen in `vraag.env` zijn veranderd (`"nieuwe_versie":"ongetest"`; de vraagbaak antwoordt intussen gewoon).
+- Terugdraaien, eerste route: `bash /opt/vraag/deploy/wissel.sh terug` (vorige image met zijn eigen goedkeuring, één
+  herstart). Tweede route: revert van de pull request; let op: met de oude code is de vraagbaak dan 30 tot 45 minuten uit.
+- Een gezakte sleutel toch opnieuw testen (alleen na akkoord Raymond): `bash /opt/vraag/deploy/wissel.sh herhaal <sleutel>`.
+- Dringende fix terwijl een nieuwe versie gezakt is: een aparte pull request zonder antwoordwijziging (sleutel gelijk,
+  dus direct live), of na akkoord van Raymond via direct bijwerken hieronder.
 - Direct bijwerken (alleen als het niet tot de nacht kan wachten): TCP 22 tijdelijk open in `fw-vraag`, dan op de Mac
   `ssh -i ~/.ssh/websitegesprek_vraag root@vraag.websitegesprek.nl 'systemctl start vraag-update.service && echo GELUKT'`, daarna TCP 22 weer dicht.
 - Beveiligingsupdates van Ubuntu dagelijks (unattended-upgrades).
@@ -70,7 +92,7 @@ Live pas met privacyverklaring 1.8 en na de eindtoets van Juridisch (V7/VB8).
 1. Bezoekers krijgen het model dat de volledige testset kiest: Sonnet 5.5 (met en zonder nadenken) en Haiku 5.5 (met nadenken) draaien allemaal; de meeste goede antwoorden wint, bij precies gelijk de snelste.
 2. Haiku valt alleen in bij drukte, een time-out of een netwerkfout van het gekozen model.
 3. De beoordelaar van de testset is Opus 5.5 (sterker dan het model dat hij nakijkt).
-4. Een volledige testset met drie varianten duurt ongeveer een half uur tot drie kwartier; tot hij klaar is, staat de vraagbaak uit als het de eerste keer is na een wijziging.
+4. Een volledige testset met drie varianten duurt ongeveer een half uur tot drie kwartier; hij draait in een aparte testcontainer en de live versie blijft intussen antwoorden (546.1).
 5. Faalt een controle die het model kan verbeteren (geen bron, een getal of woord dat niet op de site staat, te lang), dan vraagt de server het één keer opnieuw met precies wat er mis was; pas daarna volgt de doorverwijzing.
 
 ## F. Kosten en budget (besluit 468)

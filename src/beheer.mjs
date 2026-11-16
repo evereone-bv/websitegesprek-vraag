@@ -1,6 +1,6 @@
 // Beheer op de server (in de container):  node src/beheer.mjs <opdracht>
 //   status            stand van de vraagbaak
-//   aan               weer aanzetten na een automatische uitschakeling (alleen na akkoord Raymond, besluit 400)
+//   aan               weer aanzetten na handmatig uit (sleutel- en tegoedfout herstellen vanzelf, besluit 546.1)
 //   uit [reden]       uitzetten
 //   ververs           kennisbank nu opnieuw ophalen
 //   export [dagen]    register als JSON (zonder IP of token) voor rapportage/Sheet

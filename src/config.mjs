@@ -61,6 +61,11 @@ export function laadConfig(env = process.env) {
     exportAan: env.VRAAG_EXPORT === 'aan',
     cacheTtl: env.VRAAG_CACHE_TTL === '5m' ? '5m' : '1h', // besluit 461
     beheerSleutel: env.VRAAG_BEHEER_SLEUTEL || '', // voor /beheer/* (export, aan/uit); alleen lokaal op de server
+    // Besluit 546.1 (blauw-groen): goedkeuringsbestand van de live versie (W1, alleen-lezen in de container), de stand van
+    // de poort die deploy/wissel.sh bijhoudt, en de kostengrens per testrun (V13, W3; het wisselscript zet hem per run).
+    goedkeuringPad: env.VRAAG_GOEDKEURING || '/goedkeuring.json',
+    poortMap: env.VRAAG_POORT || '/poort',
+    testPlafondEuro: getal('VRAAG_TEST_PLAFOND', 5),
   };
 }
 

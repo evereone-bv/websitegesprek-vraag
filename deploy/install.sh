@@ -6,7 +6,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 DIR="$(pwd)"
-IMAGE=websitegesprek-vraag:latest
+IMG=websitegesprek-vraag
+VAR=/var/lib/vraag
 
 echo "== Pakketten"
 export DEBIAN_FRONTEND=noninteractive
@@ -54,8 +55,14 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 UNIT
 
-echo "== Image bouwen"
-docker build --pull -t "$IMAGE" .
+echo "== Image bouwen als kandidaat (besluit 546.1: live pas na een geslaagde testset, deploy/wissel.sh)"
+docker build --pull -t "$IMG:kandidaat" .
+install -d -m 0755 "$VAR" "$VAR/poort" "$VAR/goedgekeurd" "$VAR/gezakt"
+[ -f "$VAR/goedkeuring-live.json" ] || echo '{}' > "$VAR/goedkeuring-live.json"
+# Eerste uitrol (4a.7): de versie die nu draait (0.4.2, testset geslaagd 16 nov) wordt de eerste live-versie.
+if ! docker image inspect "$IMG:live" >/dev/null 2>&1 && docker image inspect "$IMG:latest" >/dev/null 2>&1; then
+  docker tag "$IMG:latest" "$IMG:live"
+fi
 
 echo "== Dienst"
 cat > /etc/systemd/system/vraag.service <<UNIT
@@ -69,8 +76,9 @@ RestartSec=5
 ExecStartPre=-/usr/bin/docker rm -f vraag
 ExecStart=/usr/bin/docker run --rm --name vraag --network vraagnet -p 127.0.0.1:8090:8090 \\
   --memory=384m --memory-swap=384m --pids-limit=256 --cap-drop=ALL --security-opt no-new-privileges \\
-  --read-only --tmpfs /tmp:size=16m \\
-  -v vraagdata:/data --env-file /etc/vraag/vraag.env $IMAGE
+  --read-only --tmpfs /tmp:size=16m --oom-score-adj=-500 \\
+  -v vraagdata:/data -v $VAR/goedkeuring-live.json:/goedkeuring.json:ro -v $VAR/poort:/poort:ro \\
+  --env-file /etc/vraag/vraag.env $IMG:live
 ExecStop=/usr/bin/docker stop -t 10 vraag
 [Install]
 WantedBy=multi-user.target
@@ -82,8 +90,29 @@ cat > /etc/systemd/system/vraag-update.service <<UNIT
 Description=Vraagbaak bijwerken
 [Service]
 Type=oneshot
+TimeoutStartSec=3h
 WorkingDirectory=$DIR
 ExecStart=/bin/bash -c 'git fetch -q origin && git reset -q --hard origin/main && bash deploy/install.sh'
+UNIT
+
+echo "== Poort elke 15 minuten: herhaling na een technische fout (W5) en ongeteste instellingen (W2)"
+cat > /etc/systemd/system/vraag-poort.service <<UNIT
+[Unit]
+Description=Vraagbaak testpoort (besluit 546.1)
+[Service]
+Type=oneshot
+TimeoutStartSec=3h
+WorkingDirectory=$DIR
+ExecStart=/bin/bash deploy/wissel.sh controle
+UNIT
+cat > /etc/systemd/system/vraag-poort.timer <<'UNIT'
+[Unit]
+Description=Vraagbaak testpoort elke 15 minuten (besluit 546.1)
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+[Install]
+WantedBy=timers.target
 UNIT
 cat > /etc/systemd/system/vraag-update.timer <<'UNIT'
 [Unit]
@@ -122,17 +151,24 @@ caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 systemctl daemon-reload
 systemctl enable --now vraag-firewall.service
 systemctl restart vraag-firewall.service
-systemctl enable vraag.service vraag-update.timer
-systemctl restart vraag.service
-systemctl start vraag-update.timer
+systemctl enable vraag.service vraag-update.timer vraag-poort.timer
+# Besluit 546.1: de live container wordt alleen door deploy/wissel.sh vervangen. Hier alleen starten als hij niet draait;
+# een gewijzigde unit (bijv. de nieuwe mounts) geldt bij de volgende wissel of herstart.
+if docker image inspect "$IMG:live" >/dev/null 2>&1; then
+  systemctl is-active --quiet vraag.service || systemctl start vraag.service
+fi
+systemctl start vraag-update.timer vraag-poort.timer
 # Besluit 480 (review V7): de export-timer rolt mee met de nachtelijke update; uitzetten = deze regel vervangen door
 # 'systemctl disable --now vraag-export.timer' (ook via de nachtelijke update, zonder SSH).
 systemctl enable --now vraag-export.timer
 systemctl enable caddy
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
 
+echo "== Nieuwe versie testen en zo nodig wisselen (deploy/wissel.sh)"
+bash deploy/wissel.sh update || true
+
 echo "== Controle"
-for i in $(seq 1 30); do
+for _ in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:8090/healthz >/dev/null 2>&1; then break; fi
   sleep 2
 done

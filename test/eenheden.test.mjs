@@ -214,12 +214,12 @@ test('besluit 465: gewone vraag krijgt één herkansing, valkuil niet', async ()
   assert.equal(altijdFout.uitslag[0].goed, false);
 });
 
-test('besluit 465: testsleutel hangt af van servercode en testset, niet van venster of versienummer', async () => {
-  const { codeVingerafdruk } = await import('../src/server.mjs');
-  const src = readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8');
-  assert.match(codeVingerafdruk(), /^[0-9a-f]{12}$/);
-  assert.match(src, /const sleutel = \[CODE, /);
-  assert.ok(!/const sleutel = \[VERSIE/.test(src));
+test('besluit 465/546.1: testsleutel hangt af van antwoordcode, testset en instellingen, niet van venster of versienummer', async () => {
+  const { poortSleutel } = await import('../src/proef.mjs');
+  const { laadConfig } = await import('../src/config.mjs');
+  assert.match(poortSleutel(laadConfig({ VRAAG_DATA_DIR: ':memory:' })), /^[0-9a-f]{16}$/);
+  const src = readFileSync(new URL('../src/proef.mjs', import.meta.url), 'utf8');
+  assert.ok(!/package\.json/.test(src.slice(src.indexOf('export function poortSleutel'), src.indexOf('export function alleSrcBestanden'))), 'versienummer zit niet in de sleutel');
 });
 
 test('besluit 477: tekstfragment naar de geciteerde zin, veilig gecodeerd', async () => {
