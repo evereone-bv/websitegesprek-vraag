@@ -1,6 +1,6 @@
 {
   "name": "websitegesprek-vraag",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "description": "Vraagbaak (chat) op websitegesprek.nl - server",
   "type": "module",
