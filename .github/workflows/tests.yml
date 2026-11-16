@@ -19,4 +19,6 @@ jobs:
         with:
           node-version: '22'
       - run: node --version
+      # Besluit 546.1 (V16, W8): het wisselscript zonder meldingen van ShellCheck (staat op de runners van GitHub).
+      - run: shellcheck deploy/*.sh test/fixtures/nep/*
       - run: npm test

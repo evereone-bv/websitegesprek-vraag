@@ -5,7 +5,8 @@ import { readFileSync } from 'node:fs';
 import { laadConfig } from '../src/config.mjs';
 import { openOpslag } from '../src/opslag.mjs';
 import { maakVraagbaak } from '../src/vraagbaak.mjs';
-import { maakServer, maakProef } from '../src/server.mjs';
+import { maakServer } from '../src/server.mjs';
+import { maakProef } from '../src/proef.mjs';
 import { losPuzzelOp } from '../src/beveiliging.mjs';
 
 const kb = JSON.parse(readFileSync(new URL('./fixtures/kennisbank.json', import.meta.url), 'utf8'));
@@ -32,9 +33,11 @@ function nepApi({ uitvoer = GOED, status = 200, fout = null, oordeel = OORDEEL_G
 function opzet(env = {}, api = nepApi()) {
   const config = laadConfig({ VRAAG_ACTIEF: '1', ANTHROPIC_API_KEY: 'sk-ant-test-' + 'x'.repeat(30), VRAAG_DATA_DIR: ':memory:', VRAAG_PUZZEL_BITS: '4', ...env });
   const opslag = openOpslag(':memory:');
-  const vb = maakVraagbaak({ config, opslag, fetchFn: api });
+  // Besluit 546.1 (W1): model en variant komen uit het goedkeuringsbestand; in de tests een vervangbare waarde.
+  const keuze = { waarde: null };
+  const vb = maakVraagbaak({ config, opslag, fetchFn: api, goedkeuring: () => keuze.waarde });
   vb.zetKennisbank(kb, true);
-  return { config, opslag, vb, api };
+  return { config, opslag, vb, api, keuze };
 }
 
 function gesprek(vb, ip = '10.0.0.1') {
@@ -44,31 +47,51 @@ function gesprek(vb, ip = '10.0.0.1') {
   return t;
 }
 
-test('standaard (auto): uit tot de schakelaar op de site aan staat én de testset geslaagd is', async () => {
+test('standaard (auto): uit tot de schakelaar op de site aan staat; de testset zet hem niet meer uit (546.1)', async () => {
   let siteHtml = '<html><div id="wg-vraag-blok" data-aan="0" hidden></div></html>';
   const api = nepApi();
   const fetchFn = async (url, opts) => (String(url).startsWith('https://websitegesprek.nl') ? new Response(siteHtml, { status: 200 }) : api(url, opts));
   const { vb, opslag } = opzet({ VRAAG_ACTIEF: '' }, fetchFn);
-  assert.equal(vb.status().reden, 'schakelaar_site_uit');
+  assert.equal(vb.status().reden, 'schakelaar_site_uit', 'nog nooit gelezen = uit');
   await vb.leesSchakelaar();
   assert.equal(vb.status().reden, 'schakelaar_site_uit');
+  assert.equal(vb.bewaking(), 'storing', 'zonder goedkeuringsbestand: ongetest = storing');
   siteHtml = '<html><div id="wg-vraag-blok" data-aan="1"></div></html>';
   await vb.leesSchakelaar();
-  assert.equal(vb.status().reden, 'testset_niet_geslaagd');
-  const { INSTRUCTIE_VERSIE } = await import('../src/instructie.mjs');
-  opslag.zetStaat('proef:volledig', { geslaagd: true, model: 'claude-haiku-5-5', instructie: INSTRUCTIE_VERSIE });
-  assert.equal(vb.status().aan, true);
-  opslag.zetStaat('proef:volledig', { geslaagd: true, model: 'claude-opus-5-5', instructie: INSTRUCTIE_VERSIE });
-  assert.equal(vb.status().reden, 'testset_niet_geslaagd', 'testset voor een model buiten de testmodellen telt niet');
-  opslag.zetStaat('proef:volledig', { geslaagd: true, gekozenModel: 'claude-sonnet-5-5', instructie: INSTRUCTIE_VERSIE });
-  assert.equal(vb.status().aan, true, 'besluit 467: de gekozen variant (Sonnet) telt');
-  opslag.zetStaat('proef:volledig', { geslaagd: true, model: 'claude-haiku-5-5', instructie: INSTRUCTIE_VERSIE });
-  // Site onbereikbaar of botcontrole: vorige stand blijft; na 2 uur zonder bevestiging uit.
+  assert.equal(vb.status().aan, true, 'zonder geslaagde testset toch aan (W1: status() controleert de testset niet meer)');
+  assert.equal(vb.nieuweVersie(), 'ongetest');
+  // Site onbereikbaar of botcontrole: vorige stand blijft, ook na 2 uur (4b.4); dan wel 'storing'.
   siteHtml = '<html><meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/"></html>';
   assert.equal((await vb.leesSchakelaar()).ok, false);
   assert.equal(vb.status().aan, true);
   opslag.zetStaat('site:aan', { aan: true, tijd: Date.now() - 3 * 3_600_000 });
+  assert.equal(vb.status().aan, true, 'onleesbare site: laatste stand blijft gelden');
+  // Uitdrukkelijk uit op de site: direct uit, en dat is bewust (geen storing door deze reden).
+  siteHtml = '<html><div id="wg-vraag-blok" data-aan="0"></div></html>';
+  await vb.leesSchakelaar();
   assert.equal(vb.status().reden, 'schakelaar_site_uit');
+});
+
+test('546.1 W6: sleutelfout zet uit; herstelpoging hooguit eens per 15 minuten, met max_tokens 1, en zet weer aan', async () => {
+  let fout = true;
+  const goed = nepApi();
+  const api = async (url, opts) => (fout ? nepApi({ status: 401, fout: 'authentication_error' })(url, opts) : goed(url, opts));
+  const { vb } = opzet({}, api);
+  const t = gesprek(vb);
+  const r = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoi' });
+  assert.equal(r.doorverwezen, true);
+  assert.deepEqual([vb.status().aan, vb.status().reden], [false, 'sleutelfout']);
+  assert.equal(vb.bewaking(), 'storing');
+  assert.equal((await vb.herstelPoging()).aan, false, 'sleutel nog fout: blijft uit');
+  fout = false;
+  assert.equal((await vb.herstelPoging()).gedaan, false, 'niet vaker dan eens per 15 minuten');
+  const k = { waarde: 0 };
+  const { vb: vb2, opslag: o2 } = opzet({}, async (url, opts) => { k.waarde++; k.body = JSON.parse(opts.body); return goed(url, opts); });
+  o2.zetStaat('uit', { reden: 'tegoed', sinds: new Date().toISOString() });
+  const h = await vb2.herstelPoging();
+  assert.deepEqual([h.gedaan, h.aan, vb2.status().aan], [true, true, true]);
+  assert.equal(k.body.max_tokens, 1);
+  assert.equal(k.body.model, 'claude-haiku-5-5', 'goedkoopste testmodel');
 });
 
 test('VRAAG_ACTIEF=0 is altijd uit', async () => {
@@ -150,7 +173,7 @@ test('grenzen: lengte, per gesprek en dagplafond (vanzelf weer aan)', async () =
   assert.equal(r.reden, 'even_niet');
 });
 
-test('sleutelfout zet de vraagbaak blijvend uit tot akkoord', async () => {
+test('sleutelfout zet de vraagbaak uit; handmatig aan kan altijd (herstel vanzelf: zie W6-test)', async () => {
   const { vb } = opzet({}, nepApi({ status: 401, fout: 'authentication_error' }));
   const t = gesprek(vb);
   const r = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Hoi' });
@@ -160,11 +183,20 @@ test('sleutelfout zet de vraagbaak blijvend uit tot akkoord', async () => {
   assert.equal(vb.status().aan, true);
 });
 
-test('veel API-fouten → uit (foutpercentage)', async () => {
-  const { vb } = opzet({ VRAAG_PER_TOKEN: '100' }, nepApi({ status: 500 }));
+test('546.1 W7: veel API-fouten zetten de vraagbaak niet meer uit, wel storing; elke vraag krijgt de doorverwijzing', async () => {
+  const { vb, keuze, config } = opzet({ VRAAG_PER_TOKEN: '100' }, nepApi({ status: 500 }));
+  const { poortSleutel } = await import('../src/proef.mjs');
+  keuze.waarde = { sleutel: poortSleutel(config), geslaagd: true, gekozenModel: 'claude-sonnet-5-5', gekozen: 'low' };
   const t = gesprek(vb);
-  for (let i = 0; i < 10; i++) await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'v' + i });
-  assert.equal(vb.status().reden, 'foutpercentage');
+  let r;
+  for (let i = 0; i < 10; i++) r = await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'v' + i });
+  assert.equal(r.doorverwezen, true);
+  assert.equal(vb.status().aan, true);
+  assert.equal(vb.bewaking(), 'storing');
+  const src = readFileSync(new URL('../src/vraagbaak.mjs', import.meta.url), 'utf8') + readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8');
+  assert.ok(!/zetUit\('foutpercentage'\)/.test(src) && !/zetUit\('proef_rood'\)/.test(src), 'W7: geen zetUit bij foutpercentage of dagproef');
+  const aanroepen = [...src.matchAll(/zetUit\(/g)].length;
+  assert.equal(aanroepen, 2, 'W7: zetUit alleen nog in de definitie en bij sleutel/tegoed');
 });
 
 test('kennisbank: grote wijziging of te klein wordt niet actief', async () => {
@@ -301,7 +333,7 @@ test('besluit 447: nadenken low (adaptief, effort low, ruim max_tokens) of uit',
 });
 
 test('besluit 467: kiesVariant kiest op kwaliteit; alleen bij precies even goed de snelste', async () => {
-  const { kiesVariant } = await import('../src/server.mjs');
+  const { kiesVariant } = await import('../src/proef.mjs');
   assert.equal(kiesVariant({ low: { geslaagd: true, goed: 48, gemDuurMs: 3000 }, uit: { geslaagd: true, goed: 48, gemDuurMs: 1500 } }), 'uit');
   assert.equal(kiesVariant({ 'claude-sonnet-5-5|low': { geslaagd: true, goed: 52, gemDuurMs: 4000 }, 'claude-haiku-5-5|low': { geslaagd: true, goed: 51, gemDuurMs: 3000 } }), 'claude-sonnet-5-5|low');
   assert.equal(kiesVariant({ low: { geslaagd: true, goed: 46, gemDuurMs: 3000 }, uit: { geslaagd: false, goed: 50, gemDuurMs: 1500 } }), 'low');
@@ -450,9 +482,9 @@ test('besluit 467: getal dat niet op de site staat → eerst herstellen met die 
 
 test('besluit 467: vraag gaat naar het model dat de testset koos; Haiku alleen bij drukte', async () => {
   const api = nepApi();
-  const { vb, opslag } = opzet({}, api);
+  const { vb, opslag, keuze } = opzet({}, api);
   const { INSTRUCTIE_VERSIE } = await import('../src/instructie.mjs');
-  opslag.zetStaat('proef:volledig', { geslaagd: true, gekozenModel: 'claude-haiku-5-5', gekozen: 'low', instructie: INSTRUCTIE_VERSIE });
+  keuze.waarde = { geslaagd: true, gekozenModel: 'claude-haiku-5-5', gekozen: 'low', instructie: INSTRUCTIE_VERSIE };
   const t = gesprek(vb);
   await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Kan ik het eerst proberen?', pagina: 'https://websitegesprek.nl/' });
   assert.equal(api.aanroepen.at(-1).body.model, 'claude-haiku-5-5');
@@ -484,7 +516,7 @@ test('467-reparatie: proef heeft geen kostenplafond, telt verbruik en stopt zich
 test('468: kostenpiek vanaf € 3 per uur zet de zuinige stand aan, nooit uit; de proef heeft geen piekgrens', async () => {
   const { config } = opzet();
   assert.equal(config.piekDrempelEuro, 3);
-  const src = readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8');
+  const src = readFileSync(new URL('../src/proef.mjs', import.meta.url), 'utf8');
   assert.match(src, /piekDrempelEuro: 1e6/);
   // Proef met dure antwoorden: ruim boven € 0,50 en toch alle vragen gedraaid.
   const api = nepApi({ usage: { input_tokens: 50, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 20000 } });
@@ -496,13 +528,13 @@ test('468: kostenpiek vanaf € 3 per uur zet de zuinige stand aan, nooit uit; d
 
 test('468: plafonds € 10 per uur en € 30 per dag; vanaf 70% zuinige stand met het goedgekeurde goedkopere model', async () => {
   const api = nepApi();
-  const { vb, opslag, config } = opzet({ VRAAG_PLAFOND_UUR: '1', VRAAG_PLAFOND_DAG: '100' }, api);
+  const { vb, opslag, config, keuze } = opzet({ VRAAG_PLAFOND_UUR: '1', VRAAG_PLAFOND_DAG: '100' }, api);
   const standaard = laadConfig({});
   assert.equal(standaard.plafondUurEuro, 10);
   assert.equal(standaard.plafondDagEuro, 30);
   const { INSTRUCTIE_VERSIE } = await import('../src/instructie.mjs');
   const varianten = { 'claude-sonnet-5-5|low': { model: 'claude-sonnet-5-5', denken: 'low', geslaagd: true, goed: 55 }, 'claude-haiku-5-5|low': { model: 'claude-haiku-5-5', denken: 'low', geslaagd: true, goed: 52 } };
-  opslag.zetStaat('proef:volledig', { geslaagd: true, gekozenModel: 'claude-sonnet-5-5', gekozen: 'low', instructie: INSTRUCTIE_VERSIE, varianten });
+  keuze.waarde = { geslaagd: true, gekozenModel: 'claude-sonnet-5-5', gekozen: 'low', instructie: INSTRUCTIE_VERSIE, varianten };
   const t = gesprek(vb);
   await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Kan ik het eerst proberen?', pagina: 'https://websitegesprek.nl/' });
   assert.equal(api.aanroepen.at(-1).body.model, 'claude-sonnet-5-5', 'onder 70%: Sonnet');
@@ -515,7 +547,7 @@ test('468: plafonds € 10 per uur en € 30 per dag; vanaf 70% zuinige stand me
   assert.equal(vb.status().aan, true, 'zuinig is niet uit');
   // Haiku niet goedgekeurd: dan blijft Sonnet, tot het harde plafond.
   varianten['claude-haiku-5-5|low'].geslaagd = false;
-  opslag.zetStaat('proef:volledig', { geslaagd: true, gekozenModel: 'claude-sonnet-5-5', gekozen: 'low', instructie: INSTRUCTIE_VERSIE, varianten });
+  keuze.waarde = { geslaagd: true, gekozenModel: 'claude-sonnet-5-5', gekozen: 'low', instructie: INSTRUCTIE_VERSIE, varianten };
   await vb.vraag({ ip: '10.0.0.1', tokenWaarde: t.token, vraagTekst: 'Wat kost het?', pagina: 'https://websitegesprek.nl/' });
   assert.equal(api.aanroepen.at(-1).body.model, 'claude-sonnet-5-5');
   assert.ok(config.zuinigVanaf === 0.7);

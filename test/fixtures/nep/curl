@@ -1,0 +1,4 @@
+#!/bin/bash
+# Live is gezond, tenzij het live-image 'live=nee' heeft.
+echo "curl $*" >> "$NEP/log"
+! grep -qs '^live=nee' "$NEP/img/websitegesprek-vraag_live"

@@ -1,0 +1,41 @@
+#!/bin/bash
+# Nagebootste docker voor test/wissel.test.mjs (V16 van 546.1). Images zijn bestanden in $NEP/img met regels
+# 'sleutel=…', 'test=geslaagd|gezakt|fout', 'start=nee', 'live=nee'. Elke aanroep komt in $NEP/log.
+set -u
+echo "docker $*" >> "$NEP/log"
+naam() { echo "$1" | tr ':/' '__'; }
+waarde() { grep -s "^$2=" "$NEP/img/$(naam "$1")" | cut -d= -f2; }
+case "$1" in
+  image) [ -f "$NEP/img/$(naam "$3")" ]; exit $? ;;
+  tag) cp "$NEP/img/$(naam "$2")" "$NEP/img/$(naam "$3")"; exit 0 ;;
+  rm) exit 0 ;;
+  volume) exit 1 ;;
+  exec) [ "$(cat "$NEP/startcontrole" 2>/dev/null)" != "nee" ]; exit $? ;;
+  run)
+    shift; detach=0; naamc=""; uit=""; image=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -d) detach=1 ;;
+        --name) naamc="$2"; shift ;;
+        -v) case "$2" in *:/uit) uit="${2%%:/uit}" ;; esac; shift ;;
+        -e|--env-file|--network|--tmpfs|--security-opt|--memory|--memory-swap|--pids-limit|--oom-score-adj) shift ;;
+        --*) ;;
+        websitegesprek-vraag:*) image="$1"; shift; break ;;
+      esac
+      shift
+    done
+    if [ "$detach" = 1 ]; then waarde "$image" start > "$NEP/startcontrole"; exit 0; fi
+    case "$*" in
+      *"kandidaat.mjs sleutel"*) waarde "$image" sleutel; exit 0 ;;
+      *"kandidaat.mjs test"*)
+        echo "$naamc" >> "$NEP/tests"
+        s="$(waarde "$image" sleutel)"
+        case "$(waarde "$image" test)" in
+          geslaagd) printf '{"sleutel":"%s","geslaagd":true,"kosten_euro":2}' "$s" > "$uit/uitslag.json"; exit 0 ;;
+          gezakt) printf '{"sleutel":"%s","geslaagd":false}' "$s" > "$uit/uitslag.json"; exit 1 ;;
+          *) exit 2 ;;
+        esac ;;
+    esac
+    exit 0 ;;
+esac
+exit 0

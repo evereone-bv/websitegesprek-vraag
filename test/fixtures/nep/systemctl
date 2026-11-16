@@ -1,0 +1,3 @@
+#!/bin/bash
+echo "systemctl $*" >> "$NEP/log"
+exit 0
