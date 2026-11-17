@@ -30,7 +30,7 @@
   var T = NL ? {
     titel: 'Stel je vraag', plaats: 'Typ je vraag…', stuur: 'Stuur', sluit: 'Sluiten', bezig: 'Even denken…', nogEven: 'Nog even…',
     mislukt: 'Dat lukt nu even niet. Vraag het via WhatsApp of mail, dan krijg je persoonlijk antwoord.',
-    uit: 'De vraagbaak is even niet beschikbaar. Je vraag is welkom via WhatsApp of mail; je krijgt dan persoonlijk antwoord.',
+    uit: 'Stel je vraag nu via WhatsApp of mail; je krijgt persoonlijk antwoord.', // 546.1 VT1–VT4, Marketing 16 nov 21:43
     naam: 'Websitegesprek', mens: 'Liever een mens?', mic: 'Vraag inspreken', micStop: 'Stoppen met luisteren', luister: 'Ik luister…', spraakRegel: 'Je browser zet je spraak om in tekst, soms via Apple of Google. Wij krijgen alleen de tekst.', lees: 'Voorlezen', leesStop: 'Stoppen met voorlezen', geenMic: 'Inspreken werkt niet in deze browser. Typ je vraag, of gebruik het microfoontje van je toetsenbord.', wa: 'WhatsApp', of: 'of', mail: 'mail ons', bron: 'Lees meer', privacy: 'Privacy', nuttig: 'Was dit nuttig?', ja: 'Ja, nuttig', nee: 'Nee, niet nuttig',
     meer: 'Meer', minder: 'Minder',
     v1: 'Je praat met een AI-assistent (Claude). Antwoorden kunnen fouten bevatten; wat telt, staat op onze website en in onze voorwaarden. Deel geen persoonsgegevens; liever een mens? Vraag het via WhatsApp of mail.',
@@ -38,12 +38,25 @@
   } : {
     titel: 'Ask your question', plaats: 'Type your question…', stuur: 'Send', sluit: 'Close', bezig: 'Thinking…', nogEven: 'Almost there…',
     mislukt: "That isn't working right now. Ask us via WhatsApp or email for a personal answer.",
-    uit: 'The assistant is not available right now. Ask us via WhatsApp or email for a personal answer.',
+    uit: 'Ask us now via WhatsApp or email; you will get a personal answer.', // 546.1 VT1–VT4, Marketing 16 nov 21:43
     naam: 'Websitegesprek', mens: 'Prefer a human?', mic: 'Speak your question', micStop: 'Stop listening', luister: 'Listening…', spraakRegel: 'Your browser turns your speech into text, sometimes via Apple or Google. We only receive the text.', lees: 'Read aloud', leesStop: 'Stop reading', geenMic: "Speaking isn't working. Use your keyboard's microphone or type your question.", wa: 'WhatsApp', of: 'or', mail: 'email us', bron: 'Read more', privacy: 'Privacy', nuttig: 'Was this helpful?', ja: 'Yes, helpful', nee: 'No, not helpful',
     meer: 'More', minder: 'Less',
     v1: "You're chatting with an AI assistant (Claude). Answers may contain mistakes; what counts is on our website and in our terms. Don't share personal data; prefer a human? Ask us via WhatsApp or email.",
     vol: 'This conversation is full. Start a new one or ask via WhatsApp.', tegrootte: 'Your question is too long (max. 500 characters).', start: 'Connecting…'
   };
+  // Besluit 559 (C2): de vaste storingsmeldingen, oud én nieuw, Nederlands en Engels. Ze worden niet bewaard en bij openen
+  // weggefilterd uit een bewaard gesprek; zo staan er na herladen alleen vragen en antwoorden in beeld.
+  var MELDINGEN = [
+    'Stel je vraag nu via WhatsApp of mail; je krijgt persoonlijk antwoord.',
+    'De vraagbaak is even niet beschikbaar. Je vraag is welkom via WhatsApp of mail; je krijgt dan persoonlijk antwoord.',
+    'Dat lukt nu even niet. Vraag het via WhatsApp of mail, dan krijg je persoonlijk antwoord.',
+    'Dit gesprek is vol. Begin een nieuw gesprek of vraag het via WhatsApp.',
+    'Ask us now via WhatsApp or email; you will get a personal answer.',
+    'The assistant is not available right now. Ask us via WhatsApp or email for a personal answer.',
+    "That isn't working right now. Ask us via WhatsApp or email for a personal answer.",
+    'This conversation is full. Start a new one or ask via WhatsApp.'
+  ];
+  function isMelding(o) { return (o.c || '').indexOf(' st') > -1 || MELDINGEN.indexOf(o.t) > -1; }
 
   /* ---------- SHA-256 voor de rekenpuzzel (besluit 401) ---------- */
   var K = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2];
@@ -163,7 +176,7 @@
   var DUIM_OP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 11v9H4v-9h3zM7 11l4-8c1.7 0 3 1.3 3 3v3h5.2c1.3 0 2.2 1.2 1.9 2.4l-1.6 7c-.2.9-1 1.6-1.9 1.6H7"/></svg>';
   var DUIM_NEER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 13V4h3v9h-3zM17 13l-4 8c-1.7 0-3-1.3-3-3v-3H4.8c-1.3 0-2.2-1.2-1.9-2.4l1.6-7C4.7 4.7 5.5 4 6.4 4H17"/></svg>';
 
-  var el, lijst, invoer, knop, token = null, bezig = false, opnieuw = 0;
+  var el, lijst, invoer, knop, formulier = null, token = null, bezig = false, opnieuw = 0;
 
   function maak(tag, attrs, tekst) {
     var e = document.createElement(tag);
@@ -185,7 +198,10 @@
   function bewaar() {
     try {
       var items = [];
-      lijst.querySelectorAll('.b').forEach(function (b) { items.push({ c: b.className, t: b.getAttribute('data-t') || '', bron: b.getAttribute('data-bron') || '', id: b.getAttribute('data-id') || '' }); });
+      lijst.querySelectorAll('.b').forEach(function (b) {
+        var o = { c: b.className, t: b.getAttribute('data-t') || '', bron: b.getAttribute('data-bron') || '', id: b.getAttribute('data-id') || '' };
+        if (!isMelding(o)) items.push(o); // besluit 559: storingsmeldingen niet bewaren
+      });
       sessionStorage.setItem(OPSLAG, JSON.stringify(items.slice(-40)));
     } catch (e) { /* sessionStorage kan ontbreken: niet erg */ }
   }
@@ -326,9 +342,17 @@
     aan.setAttribute('aria-pressed', 'true'); uit.setAttribute('aria-pressed', 'false');
     if (token) post('/v1/duim', { token: token, id: id, duim: w }, 4000).catch(function () {});
   }
+  // Besluit 559: een storingsmelding krijgt het kenmerk 'st', staat hooguit één keer in beeld en wordt niet bewaard.
+  // 546.1 VT3: in de uit-stand geen invoerveld (een vraag die niemand leest); de regel met WhatsApp en mail blijft staan.
+  var laatsteMelding = null;
   function terugval(tekst) {
-    bericht('a', tekst);
+    if (laatsteMelding && laatsteMelding.parentNode) laatsteMelding.parentNode.removeChild(laatsteMelding);
+    laatsteMelding = bericht('a st', tekst);
     invoer.disabled = true; knop.disabled = true;
+    if (tekst === T.uit && formulier) {
+      formulier.hidden = true; formulier.style.display = 'none'; // CSS zet form op flex; display none wint altijd
+      var sr = el && el.querySelector ? el.querySelector('.sr') : null; if (sr) sr.hidden = true;
+    }
   }
 
   function haalToken(klaar) {
@@ -436,6 +460,7 @@
     lijst = maak('div', { class: 'l', 'aria-live': 'polite' });
     el.appendChild(lijst);
     var f = maak('form');
+    formulier = f;
     invoer = maak('textarea', { rows: '1', maxlength: '500', placeholder: T.plaats, 'aria-label': T.plaats });
     // Tekstvak groeit mee met wat je typt, tot 5 regels; daarna scrollt het (Raymond 15 nov 10:24).
     invoer.oninput = pasHoogteAan;
@@ -468,7 +493,8 @@
     el.onkeydown = function (ev) { if (ev.key === 'Escape') { stopLezen(); stopLuisteren(true); el.style.display = 'none'; } };
     document.body.appendChild(el);
     try {
-      var oud = JSON.parse(sessionStorage.getItem(OPSLAG) || '[]');
+      // Besluit 559: alleen vragen en antwoorden terugzetten; oude storingsmeldingen (oude en nieuwe teksten) niet.
+      var oud = JSON.parse(sessionStorage.getItem(OPSLAG) || '[]').filter(function (o) { return o && !isMelding(o); });
       if (oud.length) klapMelding(false);
       oud.forEach(function (o) { if (o.c.indexOf('u') > -1) bericht('u', o.t); else bericht('a', o.t, o.bron, o.id); });
     } catch (e) { /* niets */ }
