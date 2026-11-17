@@ -91,7 +91,7 @@ function nepDom() {
   return { alle, el };
 }
 
-function laadMetSpraak({ stemmen = [], vraagLog = [] } = {}) {
+function laadMetSpraak({ stemmen = [], vraagLog = [], bewaard = null, aan = true, opgeslagen = [] } = {}) {
   const dom = nepDom();
   const timers = [];
   let herkenning = null;
@@ -105,11 +105,11 @@ function laadMetSpraak({ stemmen = [], vraagLog = [] } = {}) {
   const ctx = {
     navigator: { language: 'nl-NL' }, location: { href: 'https://websitegesprek.nl/', search: '' },
     document: { createElement: dom.el, createTextNode: (t) => ({ data: t, nodeValue: t }), querySelector: () => null, getElementById: () => null, head: dom.el('head'), body: dom.el('body') },
-    sessionStorage: { getItem: () => null, setItem() {} },
+    sessionStorage: { getItem: (k) => (k === 'wg-vraag-gesprek' && bewaard ? JSON.stringify(bewaard) : null), setItem(k, v) { if (k === 'wg-vraag-gesprek') opgeslagen.push(JSON.parse(v)); } },
     fetch: (url, opt) => {
       const pad = new URL(url).pathname; const body = JSON.parse(opt.body);
       if (pad === '/v1/puzzel') return json({ uitdaging: 'proef', bits: 1 });
-      if (pad === '/v1/token') return json({ token: 'tok', aan: true, spraak: true });
+      if (pad === '/v1/token') return json({ token: 'tok', aan, spraak: true });
       if (pad === '/v1/vraag') { vraagLog.push(body.vraag); return json({ antwoord: 'Antwoord.', id: 'A-1' }); }
       return json({});
     },
@@ -297,4 +297,40 @@ test('besluit 479: antwoordnummer niet in beeld, wel mee in het WhatsApp- en mai
   assert.match(decodeURIComponent(mail.attrs.href), /^mailto:info@websitegesprek\.nl\?subject=Vraag over Websitegesprek \(antwoord A-1\)&body=Hoi, ik heb/);
   const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
   assert.ok(!/\.id\{display:block/.test(js));
+});
+
+/* ---------- besluit 559: oude storingsmeldingen niet bewaren en niet terugzetten; 546.1 VT1–VT4 ---------- */
+const OUD_NL = 'De vraagbaak is even niet beschikbaar. Je vraag is welkom via WhatsApp of mail; je krijgt dan persoonlijk antwoord.';
+const OUD_EN = 'The assistant is not available right now. Ask us via WhatsApp or email for a personal answer.';
+const NIEUW_NL = 'Stel je vraag nu via WhatsApp of mail; je krijgt persoonlijk antwoord.';
+const berichten = (dom) => dom.alle.filter((e) => e.tag === 'div' && /^b /.test(e.className) && e.ouder && e.ouder.kinderen.includes(e)).map((e) => e.attrs['data-t']);
+
+test('559 C2: bewaard gesprek met oude NL- en EN-meldingen → na openen alleen vragen en antwoorden in beeld', async () => {
+  const bewaard = [
+    { c: 'b u', t: 'Wat kost het?' }, { c: 'b a', t: OUD_NL }, { c: 'b a', t: 'Het kost € 19 per maand.', id: 'A-1' },
+    { c: 'b a', t: OUD_EN }, { c: 'b a', t: OUD_NL }, { c: 'b a', t: "That isn't working right now. Ask us via WhatsApp or email for a personal answer." },
+    { c: 'b a', t: 'Dit gesprek is vol. Begin een nieuw gesprek of vraag het via WhatsApp.' }, { c: 'b a st', t: NIEUW_NL },
+    { c: 'b a', t: 'Ask us now via WhatsApp or email; you will get a personal answer.' }, { c: 'b a', t: 'Dat lukt nu even niet. Vraag het via WhatsApp of mail, dan krijg je persoonlijk antwoord.' },
+    { c: 'b a', t: 'This conversation is full. Start a new one or ask via WhatsApp.' },
+  ];
+  const t = laadMetSpraak({ bewaard });
+  await wacht();
+  assert.deepEqual(berichten(t.dom), ['Wat kost het?', 'Het kost € 19 per maand.']);
+});
+
+test('559: een storingsmelding staat hooguit één keer in beeld en wordt niet bewaard; 546.1 VT3: geen invoerveld bij uit', async () => {
+  const opgeslagen = [];
+  const t = laadMetSpraak({ bewaard: [{ c: 'b u', t: 'Hoi' }, { c: 'b a', t: OUD_NL }], aan: false, opgeslagen });
+  await wacht();
+  assert.deepEqual(berichten(t.dom), ['Hoi', NIEUW_NL], 'precies één melding, met de nieuwe tekst (VT4)');
+  assert.ok(opgeslagen.length > 0);
+  for (const lijst of opgeslagen) assert.ok(lijst.every((o) => o.t !== NIEUW_NL && o.t !== OUD_NL), 'melding niet bewaard');
+  const form = vind(t.dom, (e) => e.tag === 'form');
+  assert.equal(form.hidden, true, 'VT3: geen invoerveld in de uit-stand');
+  assert.equal(form.style.display, 'none');
+  const mail = vind(t.dom, (e) => e.tag === 'a' && /^mailto:/.test(e.attrs.href || ''));
+  assert.ok(mail && mail.ouder, 'WhatsApp en mail blijven in beeld');
+  const js = readFileSync(new URL('../venster/venster.js', import.meta.url), 'utf8');
+  assert.match(js, /uit: 'Ask us now via WhatsApp or email; you will get a personal answer\.'/);
+  assert.ok(!js.includes("uit: 'De vraagbaak is even niet beschikbaar"), 'oude zin niet meer als T.uit');
 });
